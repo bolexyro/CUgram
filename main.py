@@ -48,8 +48,6 @@ async def index():
 
 @app.get("/authorize/{user_id}")
 async def authorize(user_id: str, request: Request):
-    print(request.url_for('oauth2callback'))
-
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
         CLIENT_SECRETS_PATH, scopes=SCOPES)
 
@@ -190,8 +188,7 @@ async def receive_messages_handler(request: Request):
         if part['mimeType'] == 'text/plain':  # or 'text/html' for HTML content
             body = base64.urlsafe_b64decode(
                 part['body']['data']).decode('utf-8')
-            print("Email Body:")
-            print(body)
+            
             bot.send_message(chat_id=receipient_user_id,
                              text=body)
 
