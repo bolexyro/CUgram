@@ -138,7 +138,8 @@ async def receive_messages_handler(request: Request):
             if header.get("name") == "To":
                 recipient_email = header.get("value")
                 break
-
+    
+    print(recipient_email)
     doc_ref = db.collection("users").document(recipient_email)
     doc = await doc_ref.get()
     doc = doc.to_dict()
