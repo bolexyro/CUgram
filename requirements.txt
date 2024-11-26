@@ -7,3 +7,4 @@ google-auth-oauthlib==1.2.1
 google-cloud-pubsub==2.27.1
 pyTelegramBotAPI==4.24.0
 python-dotenv==1.0.1
+fastapi[standard]
