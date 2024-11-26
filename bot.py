@@ -10,7 +10,6 @@ URL_BASE = os.getenv("URL_BASE")
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 bot = telebot.TeleBot(BOT_TOKEN)
 
-
 def gen_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 2

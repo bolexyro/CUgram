@@ -9,6 +9,9 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleAuthTransportRequest
+import firebase_admin
+from firebase_admin import credentials, firestore_async
 import json
 
 
@@ -23,6 +26,7 @@ PUBSUB_VERIFICATION_TOKEN = "your_verification_token"
 URL_BASE = os.getenv("URL_BASE")
 
 CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
+SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 BOLEXYRO_TOKEN_JSON_PATH = os.getenv("BOLEXYRO_TOKEN_JSON_PATH")
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
@@ -33,27 +37,18 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
-bolexyro_message_id = 0
+cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
+firebase_admin.initialize_app(cred)
+db = firestore_async.client()
 
 
 @app.get(path='/')
-def index():
+async def index():
     return 'welcome'
 
 
-@app.get(path='/mail')
-def mail_api_request(request: Request):
-    if 'credentials' not in request.session:
-        return RedirectResponse(request.url_for('authorize'), status_code=status.HTTP_303_SEE_OTHER)
-
-    features: dict = request.session.get('features', {})
-    if features.get('mail', False):
-        return request.session.get('credentials')
-    return 'Mail is not enabled'
-
-
-@app.get("/authorize")
-async def authorize(request: Request):
+@app.get("/authorize/{user_id}")
+async def authorize(user_id: str, request: Request):
     print(request.url_for('oauth2callback'))
 
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
@@ -68,12 +63,24 @@ async def authorize(request: Request):
         prompt='consent')
 
     request.session['state'] = state
+    request.session['user_id'] = user_id
     return RedirectResponse(authorization_url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get(path='/oauth2callback')
-def oauth2callback(request: Request):
-    state = request.session.get('state', "No state set")
+async def oauth2callback(request: Request):
+
+    error = request.query_params.get("error")
+    if error:
+        raise HTTPException(
+            status_code=400, detail=f"OAuth 2.0 Error: {error}")
+
+    state = request.session.get('state', False)
+    user_id = request.session.get('user_id', None)
+
+    if not state and not user_id:
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
+
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(CLIENT_SECRETS_PATH,
                                                                    scopes=SCOPES, state=state)
 
@@ -81,23 +88,26 @@ def oauth2callback(request: Request):
     authorization_response = str(request.url)
     flow.fetch_token(authorization_response=authorization_response)
 
-    # Store the credentials in the session.
-    # ACTION ITEM for developers:
-    #     Store user's access and refresh tokens in your data store if
-    #     incorporating this code into your real app.
     credentials = flow.credentials
-    credentials = {
+    service = build("gmail", "v1", credentials=credentials)
+    email = service.users().getProfile(userId='me').execute()['emailAddress']
+
+    data = {
+        'user_id': user_id,
+        'email': email,
         'token': credentials.token,
         'refresh_token': credentials.refresh_token,
         'token_uri': credentials.token_uri,
         'client_id': credentials.client_id,
         'client_secret': credentials.client_secret,
         'granted_scopes': credentials.granted_scopes}
-    request.session['credentials'] = credentials
-    features = check_granted_scopes(credentials)
-    request.session['features'] = features
-    return credentials
-    # return RedirectResponse('/', status_code=status.HTTP_303_SEE_OTHER)
+
+    doc_ref = db.collection("users").document(email)
+    await doc_ref.set(data)
+
+    # TODO you can show them an error if they denied an important scope, if you have multiple scopes
+    # features = check_granted_scopes(credentials)
+    return data
 
 
 def check_granted_scopes(credentials):
@@ -119,9 +129,51 @@ async def receive_messages_handler(request: Request):
     payload = base64.b64decode(message_data)
     print(f'envelope is => {envelope}')
     print(f'payload is => {payload}')
-    creds = Credentials.from_authorized_user_file(
-        BOLEXYRO_TOKEN_JSON_PATH, SCOPES)
 
+    payload_json = json.loads(payload)
+    recipient_email = None
+    if "email" in payload_json:
+        headers = payload_json.get("email").get(
+            "payload", {}).get("headers", [])
+        for header in headers:
+            if header.get("name") == "To":
+                recipient_email = header.get("value")
+                break
+
+    doc_ref = db.collection("users").document(recipient_email)
+    doc = await doc_ref.get()
+    doc = doc.to_dict()
+    creds = Credentials(
+        token=doc['token'],
+        refresh_token=doc['refresh_token'],
+        token_uri=doc['token_uri'],
+        client_id=doc['client_id'],
+        client_secret=doc['client_secret'],
+        granted_scopes=doc['granted_scopes']
+    )
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(GoogleAuthTransportRequest())
+        # else:
+        #     flow = InstalledAppFlow.from_client_secrets_file(
+        #         "credentials.json", SCOPES
+        #     )
+        data = {
+            'email': recipient_email,
+            'token': creds.token,
+            'refresh_token': creds.refresh_token,
+            'token_uri': creds.token_uri,
+            'client_id': creds.client_id,
+            'client_secret': creds.client_secret,
+            'granted_scopes': creds.granted_scopes}
+
+        doc_ref = db.collection("users").document(recipient_email)
+        await doc_ref.set(data)
+
+    doc_ref = db.collection("users").document(recipient_email)
+    doc = await doc_ref.get()
+    receipient_user_id = doc.to_dict()['user_id']
     service = build("gmail", "v1", credentials=creds)
 
     data_str = payload.decode('utf-8')
@@ -147,7 +199,7 @@ async def receive_messages_handler(request: Request):
                 part['body']['data']).decode('utf-8')
             print("Email Body:")
             print(body)
-            bot.send_message(chat_id=bolexyro_message_id,
+            bot.send_message(chat_id=receipient_user_id,
                              text=body)
 
     return JSONResponse(content={"message": "OK"}, status_code=200)
@@ -167,11 +219,11 @@ def process_webhook_text_pay_bot(update: dict):
         return
 
 
-def gen_markup():
+def gen_markup(user_id: str):
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton(
-        "Authorize me", url=f'{URL_BASE}authorize'))
+        "Authorize me", url=f'{URL_BASE}authorize/{user_id}'))
     return markup
 
 
@@ -180,14 +232,14 @@ def send_welcome(message):
     global bolexyro_message_id
     bolexyro_message_id = message.from_user.id
     bot.send_message(chat_id=message.from_user.id,
-                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup())
+                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup(message.from_user.id))
 
 
-bot.remove_webhook()
+# bot.remove_webhook()
 
-# Set webhook
-bot.set_webhook(
-    url=URL_BASE + BOT_TOKEN
-)
+# # Set webhook
+# bot.set_webhook(
+#     url=URL_BASE + BOT_TOKEN
+# )
 
 # bot.polling()

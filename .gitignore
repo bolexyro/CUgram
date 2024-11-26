@@ -8,3 +8,4 @@ pub_sub.py
 pub_sub_read.py
 token.json
 .env
+service-account-key.json
