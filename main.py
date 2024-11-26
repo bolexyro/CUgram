@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Request, status
-from fastapi.responses import RedirectResponse
+import base64
+from fastapi import FastAPI, Request, status, HTTPException
+from fastapi.responses import RedirectResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 import os
 from dotenv import load_dotenv
 import google_auth_oauthlib
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 load_dotenv()
@@ -13,11 +16,16 @@ os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 
 SECRET_KEY = os.getenv('SECRET_KEY')
+PUBSUB_VERIFICATION_TOKEN = "your_verification_token"
+URL_BASE = os.getenv("URL_BASE")
+
 CLIENT_SECRETS_FILE = "client_secret.json"
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+bot = telebot.TeleBot(BOT_TOKEN)
+
 app = FastAPI()
-print(SECRET_KEY)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 
@@ -89,5 +97,63 @@ def check_granted_scopes(credentials):
     if 'https://www.googleapis.com/auth/gmail.readonly' in credentials['granted_scopes']:
         features['mail'] = True
     else:
-        features['drive'] = False
+        features['mail'] = False
     return features
+
+
+@app.post("/pubsub/push")
+async def pubsub_push(request: Request):
+    token = request.query_params.get("token", "")
+    if token != PUBSUB_VERIFICATION_TOKEN:
+        raise HTTPException(status_code=400, detail="Invalid request")
+
+    envelope = await request.json()
+    message_data = envelope["message"]["data"]
+
+    payload = base64.b64decode(message_data)
+    print(payload)
+
+    # Append the decoded message to the list
+    # MESSAGES.append(payload)
+
+    # Return a successful response (status code 200)
+    return JSONResponse(content={"message": "OK"}, status_code=200)
+
+
+# Bot related stuff
+
+@app.post(path=f"/{bot}")
+def process_webhook_text_pay_bot(update: dict):
+    """
+    Process webhook calls for textpay
+    """
+    if update:
+        update = telebot.types.Update.de_json(update)
+        bot.process_new_updates([update])
+    else:
+        return
+
+
+def gen_markup():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(InlineKeyboardButton(
+        "Authorize me", url=f'{URL_BASE}authorize'))
+    return markup
+
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+
+    bot.send_message(chat_id=message.from_user.id,
+                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup())
+
+
+bot.remove_webhook()
+
+# Set webhook
+bot.set_webhook(
+    url=URL_BASE + BOT_TOKEN
+)
+
+# bot.polling()
