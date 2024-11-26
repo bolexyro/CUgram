@@ -155,7 +155,7 @@ async def receive_messages_handler(request: Request):
 
 # Bot related stuff
 
-@app.post(path=f"/{bot}")
+@app.post(path=f"/{BOT_TOKEN}")
 def process_webhook_text_pay_bot(update: dict):
     """
     Process webhook calls for textpay
