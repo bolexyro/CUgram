@@ -129,8 +129,6 @@ async def receive_messages_handler(request: Request):
     print(f'envelope is => {envelope}')
     print(f'payload is => {payload}')
 
-    service = build("gmail", "v1", credentials=creds)
-
     data_str = payload.decode('utf-8')
 
     # Parse the JSON string into a Python dictionary
@@ -176,6 +174,8 @@ async def receive_messages_handler(request: Request):
     doc = await doc_ref.get()
     receipient_user_id = doc.to_dict()['user_id']
    
+    service = build("gmail", "v1", credentials=creds)
+
 
     # Step 1: Get message history
     history = service.users().history().list(
