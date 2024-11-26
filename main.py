@@ -27,7 +27,6 @@ URL_BASE = os.getenv("URL_BASE")
 
 CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
-BOLEXYRO_TOKEN_JSON_PATH = os.getenv("BOLEXYRO_TOKEN_JSON_PATH")
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
