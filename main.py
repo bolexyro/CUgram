@@ -101,59 +101,54 @@ def check_granted_scopes(credentials):
     return features
 
 
-@app.post("/pubsub/push")
-async def pubsub_push(request: Request):
-    token = request.query_params.get("token", "")
-    if token != PUBSUB_VERIFICATION_TOKEN:
-        raise HTTPException(status_code=400, detail="Invalid request")
-
+@app.post("/push-handlers/receive_messages")
+async def receive_messages_handler(request: Request):
+    # TODO work on authentication
     envelope = await request.json()
+
     message_data = envelope["message"]["data"]
 
     payload = base64.b64decode(message_data)
-    print(payload)
+    print(f'envelope is => {envelope}')
+    print(f'payload is => {payload}')
 
-    # Append the decoded message to the list
-    # MESSAGES.append(payload)
-
-    # Return a successful response (status code 200)
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
 
 # Bot related stuff
 
-@app.post(path=f"/{bot}")
-def process_webhook_text_pay_bot(update: dict):
-    """
-    Process webhook calls for textpay
-    """
-    if update:
-        update = telebot.types.Update.de_json(update)
-        bot.process_new_updates([update])
-    else:
-        return
+# @app.post(path=f"/{bot}")
+# def process_webhook_text_pay_bot(update: dict):
+#     """
+#     Process webhook calls for textpay
+#     """
+#     if update:
+#         update = telebot.types.Update.de_json(update)
+#         bot.process_new_updates([update])
+#     else:
+#         return
 
 
-def gen_markup():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 2
-    markup.add(InlineKeyboardButton(
-        "Authorize me", url=f'{URL_BASE}authorize'))
-    return markup
+# def gen_markup():
+#     markup = InlineKeyboardMarkup()
+#     markup.row_width = 2
+#     markup.add(InlineKeyboardButton(
+#         "Authorize me", url=f'{URL_BASE}authorize'))
+#     return markup
 
 
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
+# @bot.message_handler(commands=['start'])
+# def send_welcome(message):
 
-    bot.send_message(chat_id=message.from_user.id,
-                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup())
+#     bot.send_message(chat_id=message.from_user.id,
+#                      text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup())
 
 
-bot.remove_webhook()
+# bot.remove_webhook()
 
-# Set webhook
-bot.set_webhook(
-    url=URL_BASE + BOT_TOKEN
-)
+# # Set webhook
+# bot.set_webhook(
+#     url=URL_BASE + BOT_TOKEN
+# )
 
 # bot.polling()
