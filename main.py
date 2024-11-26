@@ -129,17 +129,17 @@ async def receive_messages_handler(request: Request):
     print(f'envelope is => {envelope}')
     print(f'payload is => {payload}')
 
-    payload_json = json.loads(payload)
-    recipient_email = None
-    if "email" in payload_json:
-        headers = payload_json.get("email").get(
-            "payload", {}).get("headers", [])
-        for header in headers:
-            if header.get("name") == "To":
-                recipient_email = header.get("value")
-                break
-    
-    print(recipient_email)
+    service = build("gmail", "v1", credentials=creds)
+
+    data_str = payload.decode('utf-8')
+
+    # Parse the JSON string into a Python dictionary
+    parsed_data = json.loads(data_str)
+
+    # Access the historyId
+    history_id = parsed_data['historyId']
+    recipient_email = parsed_data['emailAddress']
+
     doc_ref = db.collection("users").document(recipient_email)
     doc = await doc_ref.get()
     doc = doc.to_dict()
@@ -151,6 +151,7 @@ async def receive_messages_handler(request: Request):
         client_secret=doc['client_secret'],
         granted_scopes=doc['granted_scopes']
     )
+
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -174,15 +175,7 @@ async def receive_messages_handler(request: Request):
     doc_ref = db.collection("users").document(recipient_email)
     doc = await doc_ref.get()
     receipient_user_id = doc.to_dict()['user_id']
-    service = build("gmail", "v1", credentials=creds)
-
-    data_str = payload.decode('utf-8')
-
-    # Parse the JSON string into a Python dictionary
-    parsed_data = json.loads(data_str)
-
-    # Access the historyId
-    history_id = parsed_data['historyId']
+   
 
     # Step 1: Get message history
     history = service.users().history().list(
