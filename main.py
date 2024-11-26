@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 import google_auth_oauthlib
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from googleapiclient.discovery import build
+from google.oauth2.credentials import Credentials
+import json
 
 
 load_dotenv()
@@ -20,6 +23,8 @@ PUBSUB_VERIFICATION_TOKEN = "your_verification_token"
 URL_BASE = os.getenv("URL_BASE")
 
 CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
+BOLEXYRO_TOKEN_JSON_PATH = os.getenv("BOLEXYRO_TOKEN_JSON_PATH")
+
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -27,6 +32,8 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+
+bolexyro_message_id = 0
 
 
 @app.get(path='/')
@@ -89,7 +96,8 @@ def oauth2callback(request: Request):
     request.session['credentials'] = credentials
     features = check_granted_scopes(credentials)
     request.session['features'] = features
-    return RedirectResponse('/', status_code=status.HTTP_303_SEE_OTHER)
+    return credentials
+    # return RedirectResponse('/', status_code=status.HTTP_303_SEE_OTHER)
 
 
 def check_granted_scopes(credentials):
@@ -111,44 +119,75 @@ async def receive_messages_handler(request: Request):
     payload = base64.b64decode(message_data)
     print(f'envelope is => {envelope}')
     print(f'payload is => {payload}')
+    creds = Credentials.from_authorized_user_file(
+        BOLEXYRO_TOKEN_JSON_PATH, SCOPES)
+
+    service = build("gmail", "v1", credentials=creds)
+
+    data_str = payload.decode('utf-8')
+
+    # Parse the JSON string into a Python dictionary
+    parsed_data = json.loads(data_str)
+
+    # Access the historyId
+    history_id = parsed_data['historyId']
+
+    # Step 1: Get message history
+    history = service.users().history().list(
+        userId='me', startHistoryId=history_id).execute()
+    message_id = history['history'][0]['messagesAdded'][0]['message']['id']
+    # Step 2: Get the message
+    message = service.users().messages().get(
+        userId='me', id=message_id, format='full').execute()
+
+    # Step 3: Decode the message body
+    for part in message['payload']['parts']:
+        if part['mimeType'] == 'text/plain':  # or 'text/html' for HTML content
+            body = base64.urlsafe_b64decode(
+                part['body']['data']).decode('utf-8')
+            print("Email Body:")
+            print(body)
+            bot.send_message(chat_id=bolexyro_message_id,
+                             text="body")
 
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
 
 # Bot related stuff
 
-# @app.post(path=f"/{bot}")
-# def process_webhook_text_pay_bot(update: dict):
-#     """
-#     Process webhook calls for textpay
-#     """
-#     if update:
-#         update = telebot.types.Update.de_json(update)
-#         bot.process_new_updates([update])
-#     else:
-#         return
+@app.post(path=f"/{bot}")
+def process_webhook_text_pay_bot(update: dict):
+    """
+    Process webhook calls for textpay
+    """
+    if update:
+        update = telebot.types.Update.de_json(update)
+        bot.process_new_updates([update])
+    else:
+        return
 
 
-# def gen_markup():
-#     markup = InlineKeyboardMarkup()
-#     markup.row_width = 2
-#     markup.add(InlineKeyboardButton(
-#         "Authorize me", url=f'{URL_BASE}authorize'))
-#     return markup
+def gen_markup():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(InlineKeyboardButton(
+        "Authorize me", url=f'{URL_BASE}authorize'))
+    return markup
 
 
-# @bot.message_handler(commands=['start'])
-# def send_welcome(message):
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    global bolexyro_message_id
+    bolexyro_message_id = message.from_user.id
+    bot.send_message(chat_id=message.from_user.id,
+                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup())
 
-#     bot.send_message(chat_id=message.from_user.id,
-#                      text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup())
 
+bot.remove_webhook()
 
-# bot.remove_webhook()
-
-# # Set webhook
-# bot.set_webhook(
-#     url=URL_BASE + BOT_TOKEN
-# )
+# Set webhook
+bot.set_webhook(
+    url=URL_BASE + BOT_TOKEN
+)
 
 # bot.polling()
