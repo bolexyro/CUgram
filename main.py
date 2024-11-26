@@ -148,7 +148,7 @@ async def receive_messages_handler(request: Request):
             print("Email Body:")
             print(body)
             bot.send_message(chat_id=bolexyro_message_id,
-                             text="body")
+                             text=body)
 
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
