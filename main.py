@@ -19,7 +19,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 PUBSUB_VERIFICATION_TOKEN = "your_verification_token"
 URL_BASE = os.getenv("URL_BASE")
 
-CLIENT_SECRETS_FILE = "client_secret.json"
+CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -50,7 +50,7 @@ async def authorize(request: Request):
     print(request.url_for('oauth2callback'))
 
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, scopes=SCOPES)
+        CLIENT_SECRETS_PATH, scopes=SCOPES)
 
     flow.redirect_uri = request.url_for('oauth2callback')
 
@@ -67,7 +67,7 @@ async def authorize(request: Request):
 @app.get(path='/oauth2callback')
 def oauth2callback(request: Request):
     state = request.session.get('state', "No state set")
-    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(CLIENT_SECRETS_FILE,
+    flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(CLIENT_SECRETS_PATH,
                                                                    scopes=SCOPES, state=state)
 
     flow.redirect_uri = request.url_for('oauth2callback')
