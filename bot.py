@@ -108,8 +108,7 @@ async def receive_messages_handler(request: Request):
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    markup.add(InlineKeyboardButton("Mark as Read"))
-
+    markup.add(InlineKeyboardButton("Mark as Read", callback_data="db_mark_as_read"))
     bot.send_message(chat_id=receipient_user_id, text="""✉️ Someone <someone@gmail.com>
     SUBJECT
                      
