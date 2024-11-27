@@ -91,8 +91,7 @@ async def oauth2callback(request: Request):
 
     # TODO you can show them an error if they denied an important scope, if you have multiple scopes
     # features = check_granted_scopes(credentials)
-    # redirect them back to the telegram bot
-    return data
+    return RedirectResponse('https://t.me/CUgram_bot', status_code=status.HTTP_303_SEE_OTHER)
 
 
 def check_granted_scopes(credentials):
