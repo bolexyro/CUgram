@@ -16,6 +16,7 @@ import json
 load_dotenv()
 
 URL_BASE = os.getenv("URL_BASE")
+AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
@@ -32,7 +33,7 @@ def gen_markup(user_id: str):
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton(
-        "Authorize me", url=f'{URL_BASE}authorize/{user_id}'))
+        "Authorize me", url=f'{AUTH_URL_BASE}authorize/{user_id}'))
     return markup
 
 
@@ -62,17 +63,11 @@ async def receive_messages_handler(request: Request):
 
     message_data = envelope["message"]["data"]
 
-    payload = base64.b64decode(message_data)
+    payload = json.loads(base64.b64decode(message_data).decode('utf-8'))
     print(f'payload is => {payload}')
 
-    data_str = payload.decode('utf-8')
-
-    # Parse the JSON string into a Python dictionary
-    parsed_data = json.loads(data_str)
-
-    # Access the historyId
-    history_id = parsed_data['historyId']
-    recipient_email = parsed_data['emailAddress']
+    history_id = payload['historyId']
+    recipient_email = payload['emailAddress']
 
     doc_ref = db.collection("users").document(recipient_email)
     doc = await doc_ref.get()
@@ -111,24 +106,33 @@ async def receive_messages_handler(request: Request):
     doc = await doc_ref.get()
     receipient_user_id = doc.to_dict()['user_id']
 
-    service = build("gmail", "v1", credentials=creds)
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(InlineKeyboardButton("Mark as Read"))
 
+    bot.send_message(chat_id=receipient_user_id, text="""✉️ Someone <someone@gmail.com>
+    SUBJECT
+                     
+    YOU HAVE A NEW MAIL""", reply_markup=markup)
+
+    # TODO this code block is causing too many errors, so find a way to solve getting the body of the message
+    # service = build("gmail", "v1", credentials=creds)
     # Step 1: Get message history
-    history = service.users().history().list(
-        userId='me', startHistoryId=history_id).execute()
-    message_id = history['history'][0]['messagesAdded'][0]['message']['id']
-    # Step 2: Get the message
-    message = service.users().messages().get(
-        userId='me', id=message_id, format='full').execute()
+    # history = service.users().history().list(
+    #     userId='me', startHistoryId=history_id).execute()
+    # message_id = history['history'][0]['messagesAdded'][0]['message']['id']
+    # # Step 2: Get the message
+    # message = service.users().messages().get(
+    #     userId='me', id=message_id, format='full').execute()
 
-    # Step 3: Decode the message body
-    for part in message['payload']['parts']:
-        if part['mimeType'] == 'text/plain':  # or 'text/html' for HTML content
-            body = base64.urlsafe_b64decode(
-                part['body']['data']).decode('utf-8')
+    # # Step 3: Decode the message body
+    # for part in message['payload']['parts']:
+    #     if part['mimeType'] == 'text/plain':  # or 'text/html' for HTML content
+    #         body = base64.urlsafe_b64decode(
+    #             part['body']['data']).decode('utf-8')
 
-            bot.send_message(chat_id=receipient_user_id,
-                             text=body)
+    #         bot.send_message(chat_id=receipient_user_id,
+    #                          text=body)
 
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
