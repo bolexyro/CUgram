@@ -80,16 +80,14 @@ async def receive_messages_handler(request: Request):
         client_secret=doc['client_secret'],
         granted_scopes=doc['granted_scopes']
     )
+    receipient_user_id = doc['user_id']
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(GoogleAuthTransportRequest())
         else:
-            # TODO send a message on the bot that they need to authorize, and a button to take them to the authorizaton site
-            pass
-        #     flow = InstalledAppFlow.from_client_secrets_file(
-        #         "credentials.json", SCOPES
-        #     )
+            bot.send_message(chat_id=receipient_user_id,
+                             text="Looks like something is wrong with your credentials. Please reauthorize me.", reply_markup=gen_markup(receipient_user_id))
         data = {
             'email': recipient_email,
             'token': creds.token,
@@ -102,17 +100,14 @@ async def receive_messages_handler(request: Request):
         doc_ref = db.collection("users").document(recipient_email)
         await doc_ref.set(data)
 
-    doc_ref = db.collection("users").document(recipient_email)
-    doc = await doc_ref.get()
-    receipient_user_id = doc.to_dict()['user_id']
-
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    markup.add(InlineKeyboardButton("Mark as Read", callback_data="db_mark_as_read"))
+    markup.add(InlineKeyboardButton(
+        "Mark as Read", callback_data="db_mark_as_read"))
     bot.send_message(chat_id=receipient_user_id, text="""✉️ Someone <someone@gmail.com>
-    SUBJECT
+    SUBJECT: THIS IS THE SUBJECT
                      
-    YOU HAVE A NEW MAIL""", reply_markup=markup)
+    BODY: YOU HAVE A NEW MAIL""", reply_markup=markup)
 
     # TODO this code block is causing too many errors, so find a way to solve getting the body of the message
     # service = build("gmail", "v1", credentials=creds)
