@@ -74,6 +74,13 @@ async def oauth2callback(request: Request):
 
     credentials = flow.credentials
     service = build("gmail", "v1", credentials=credentials)
+    request = {
+    'labelIds': ['INBOX'],
+    'topicName': 'projects/cugram-442817/topics/EmailService',
+    'labelFilterBehavior': 'INCLUDE'
+}
+
+    service.users().watch(userId='me', body=request).execute()
     email = service.users().getProfile(userId='me').execute()['emailAddress']
 
     data = {
