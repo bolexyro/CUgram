@@ -140,6 +140,9 @@ async def receive_messages_handler(request: Request):
     sender_name, sender_email, subject, body, message_id = get_email_details(
         service=service, history_id=saved_history_id)
     
+    if not subject and not body and not sender_name and not sender_email and not message_id:
+        return
+    
     if doc.get('message_id', None) == message_id:
         return
     data = {
@@ -161,8 +164,6 @@ async def receive_messages_handler(request: Request):
         USERS_COLLECTION).document(recipient_email)
     await doc_ref.set(data)
 
-    if not subject and not body and not sender_name and not sender_email:
-        return
 
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton(
@@ -178,16 +179,13 @@ BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cb"))
 def callback_query(call: CallbackQuery):
     action, email_message_id = call.data.split('*')[1], call.data.split('*')[2]
-    print(action, email_message_id, call.from_user.id)
     if action == "mark_as_read":
         users_ref = db_without_async.collection(USERS_COLLECTION)
         query_ref = users_ref.where(filter=FieldFilter(
             "user_id", "==", f"{call.from_user.id}"))
         docs = query_ref.get()
-        print(f'length of docs is {len(docs)}')
         if len(docs) == 0:
             return
-        print(f'doc is {docs[0]}')
         doc = docs[0].to_dict()
         doc_credential = doc['credential']
         creds = Credentials(
