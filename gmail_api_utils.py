@@ -81,7 +81,7 @@ def mark_unmark_message_as_read(service, message_id, mark_as_read: bool):
 
         print(f"Message with ID: {message_id} marked as read.")
     else:
-        msg_labels = {'removeLabelIds': ['INBOX'], 'addLabelIds': ['UNREAD']}
+        msg_labels = {'addLabelIds': ['UNREAD']}
         service.users().messages().modify(userId="me", id=message_id, body=msg_labels).execute()
         print(f"Message with ID: {message_id} marked as unread.")
         
