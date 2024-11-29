@@ -173,7 +173,7 @@ BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cb"))
 def callback_query(call: CallbackQuery):
     action, email_message_id = call.data.split('*')[1], call.data.split('*')[2]
-
+    print(action, email_message_id)
     if action == "mark_as_read":
         users_ref = db_without_async.collection(USERS_COLLECTION)
         query_ref = users_ref.where(filter=FieldFilter(
