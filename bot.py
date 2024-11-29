@@ -153,8 +153,11 @@ async def receive_messages_handler(request: Request):
         return
 
     service = build("gmail", "v1", credentials=creds)
-    subject, body, sender_name, sender_email = get_email_details(
+    sender_name, sender_email, subject, body,  = get_email_details(
         service=service, history_id=saved_history_id)
+    
+    if not subject and not body and not sender_name and not sender_email:
+        return
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
