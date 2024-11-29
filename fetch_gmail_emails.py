@@ -15,8 +15,7 @@ def get_email_subject_and_body(service, history_id):
     messages = history.get("history", [])
 
     if not messages:
-        print("No new messages found.")
-        return "No new messages found.", "No new messages found."
+        return None, None
 
     # Step 2: Extract message ID
     message_id = messages[0]["messages"][0]["id"]
@@ -74,9 +73,46 @@ def truncate_string_with_ellipsis(s: str, max_length: int = 4096) -> str:
     return s
 
 
+def get_sender_details(service, history_id):
+    history = service.users().history().list(
+        userId="me", startHistoryId=history_id).execute()
+    messages = history.get("history", [])
+
+    if not messages:
+        return None, None
+
+    # Step 2: Extract message ID
+    message_id = messages[0]["messages"][0]["id"]
+
+    # Step 3: Get message details
+    message = service.users().messages().get(
+        userId="me", id=message_id, format="full").execute()
+
+    # Step 4: Extract "From" header
+    headers = message["payload"]["headers"]
+    from_header = next(header["value"]
+                       for header in headers if header["name"] == "From")
+
+    # Step 5: Parse sender's name and email
+    match = re.match(r'(.*)<(.+)>', from_header)
+    if match:
+        name = match.group(1).strip('" ')
+        email = match.group(2).strip()
+    else:
+        name = None
+        email = from_header.strip()
+
+    return name, email
+
 # service = build("gmail", "v1", credentials=creds)
 
-# history_id = "1754180"
+# history_id = "1754371"
+
+# sender_name, sender_email = get_sender_details(service, history_id)
+
+# print("Sender name:", sender_name)
+# print("Sender email:", sender_email)
+
 # subject, body = get_email_subject_and_body(service, history_id)
 
 # print("Subject:", subject)

@@ -13,7 +13,7 @@ from firebase_admin import credentials, firestore_async, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 import json
 
-from fetch_gmail_emails import get_email_subject_and_body
+from fetch_gmail_emails import get_email_subject_and_body, get_sender_details
 
 
 load_dotenv()
@@ -154,34 +154,15 @@ async def receive_messages_handler(request: Request):
     
     service = build("gmail", "v1", credentials=creds)
     subject, body = get_email_subject_and_body(service=service, history_id=saved_history_id)
-
+    sender_name, sender_email = get_sender_details(service=service, history_id=saved_history_id)
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton(
         "Mark as Read", callback_data="db_mark_as_read"))
-    bot.send_message(chat_id=receipient_user_id, text=f"""✉️ Someone <someone@gmail.com>
+    bot.send_message(chat_id=receipient_user_id, text=f"""✉️ {sender_name} <{sender_email}>
     SUBJECT: {subject}
                      
-    BODY: {body}""", reply_markup=markup, parse_mode="HTML")
-
-    # TODO this code block is causing too many errors, so find a way to solve getting the body of the message
-    # service = build("gmail", "v1", credentials=creds)
-    # Step 1: Get message history
-    # history = service.users().history().list(
-    #     userId='me', startHistoryId=history_id).execute()
-    # message_id = history['history'][0]['messagesAdded'][0]['message']['id']
-    # # Step 2: Get the message
-    # message = service.users().messages().get(
-    #     userId='me', id=message_id, format='full').execute()
-
-    # # Step 3: Decode the message body
-    # for part in message['payload']['parts']:
-    #     if part['mimeType'] == 'text/plain':  # or 'text/html' for HTML content
-    #         body = base64.urlsafe_b64decode(
-    #             part['body']['data']).decode('utf-8')
-
-    #         bot.send_message(chat_id=receipient_user_id,
-    #                          text=body)
+    BODY: {body}""", reply_markup=markup)
 
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
