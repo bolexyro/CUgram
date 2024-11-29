@@ -174,8 +174,8 @@ BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 bot.remove_webhook()
 
 # Set webhook
-# bot.set_webhook(
-#     url=URL_BASE + BOT_TOKEN
-# )
+bot.set_webhook(
+    url=URL_BASE + BOT_TOKEN
+)
 
-bot.polling()
+# bot.polling()
