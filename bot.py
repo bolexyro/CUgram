@@ -147,9 +147,10 @@ async def receive_messages_handler(request: Request):
         USERS_COLLECTION).document(recipient_email)
     await doc_ref.set(data)
 
-    if not saved_history_id:
+    if not saved_history_id or saved_history_id == history_id:
         # if there wasn't any saved history id don't send any message since it is the last saved history we use
         # to send the current message
+        # or if message is repeated
         return
 
     service = build("gmail", "v1", credentials=creds)
