@@ -7,7 +7,7 @@ import google_auth_oauthlib
 from googleapiclient.discovery import build
 import firebase_admin
 from firebase_admin import credentials, firestore_async
-import grequests
+import requests
 
 load_dotenv()
 
@@ -101,9 +101,9 @@ async def oauth2callback(request: Request):
 
     # TODO you can show them an error if they denied an important scope, if you have multiple scopes
     # features = check_granted_scopes(credentials)
-    url = URL_BASE + user_id
+    url = URL_BASE + f'auth-complete/{user_id}'
     # this request is so that the bot sends the user a confirmation message
-    grequests.get(url=url)
+    requests.get(url=url)
     return RedirectResponse('https://t.me/CUgram_bot', status_code=status.HTTP_303_SEE_OTHER)
 
 
