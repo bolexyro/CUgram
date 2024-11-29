@@ -13,6 +13,8 @@ from firebase_admin import credentials, firestore_async, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 import json
 
+from fetch_gmail_emails import get_email_subject_and_body
+
 
 load_dotenv()
 
@@ -107,7 +109,8 @@ async def receive_messages_handler(request: Request):
     if not doc.exists:
         return
     doc = doc.to_dict()
-
+    
+    saved_history_id = doc.get('history_id', None)
     doc_credential = doc['credential']
     creds = Credentials(
         token=doc_credential['token'],
@@ -126,31 +129,40 @@ async def receive_messages_handler(request: Request):
             bot.send_message(chat_id=receipient_user_id,
                              text="Looks like something is wrong with your credentials. Please reauthorize me.", reply_markup=gen_markup(receipient_user_id))
             return
-        data = {
-            'email': recipient_email,
-            'user_id': receipient_user_id,
-            'credential': {
-                'token': creds.token,
-                'refresh_token': creds.refresh_token,
-                'token_uri': creds.token_uri,
-                'client_id': creds.client_id,
-                'client_secret': creds.client_secret,
-                'granted_scopes': creds.granted_scopes
-            },
-        }
+    data = {
+        'history_id': history_id,
+        'email': recipient_email,
+        'user_id': receipient_user_id,
+        'credential': {
+            'token': creds.token,   
+            'refresh_token': creds.refresh_token,
+            'token_uri': creds.token_uri,
+            'client_id': creds.client_id,
+            'client_secret': creds.client_secret,
+            'granted_scopes': creds.granted_scopes
+        },
+    }
 
-        doc_ref = db_async.collection(
-            USERS_COLLECTION).document(recipient_email)
-        await doc_ref.set(data)
+    doc_ref = db_async.collection(
+        USERS_COLLECTION).document(recipient_email)
+    await doc_ref.set(data)
+
+    if not saved_history_id:
+        # if there wasn't any saved history id don't send any message since it is the last saved history we use
+        # to send the current message
+        return
+    
+    service = build("gmail", "v1", credentials=creds)
+    subject, body = get_email_subject_and_body(service=service, history_id=saved_history_id)
 
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton(
         "Mark as Read", callback_data="db_mark_as_read"))
-    bot.send_message(chat_id=receipient_user_id, text="""✉️ Someone <someone@gmail.com>
-    SUBJECT: THIS IS THE SUBJECT
+    bot.send_message(chat_id=receipient_user_id, text=f"""✉️ Someone <someone@gmail.com>
+    SUBJECT: {subject}
                      
-    BODY: YOU HAVE A NEW MAIL""", reply_markup=markup)
+    BODY: {body}""", reply_markup=markup, parse_mode="HTML")
 
     # TODO this code block is causing too many errors, so find a way to solve getting the body of the message
     # service = build("gmail", "v1", credentials=creds)
