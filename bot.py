@@ -13,7 +13,7 @@ from firebase_admin import credentials, firestore_async, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 import json
 
-from fetch_gmail_emails import get_email_subject_and_body, get_sender_details
+from fetch_gmail_emails import get_email_details
 
 
 load_dotenv()
@@ -76,7 +76,7 @@ def send_welcome(message):
                 creds.refresh(GoogleAuthTransportRequest())
             else:
                 bot.send_message(chat_id=message.from_user.id,
-                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup(message.from_user.id))
+                                 text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup(message.from_user.id))
                 return
         bot.send_message(chat_id=message.from_user.id,
                          text=f"You are authorized as {doc['email']}")
@@ -109,7 +109,7 @@ async def receive_messages_handler(request: Request):
     if not doc.exists:
         return
     doc = doc.to_dict()
-    
+
     saved_history_id = doc.get('history_id', None)
     doc_credential = doc['credential']
     creds = Credentials(
@@ -134,7 +134,7 @@ async def receive_messages_handler(request: Request):
         'email': recipient_email,
         'user_id': receipient_user_id,
         'credential': {
-            'token': creds.token,   
+            'token': creds.token,
             'refresh_token': creds.refresh_token,
             'token_uri': creds.token_uri,
             'client_id': creds.client_id,
@@ -151,18 +151,19 @@ async def receive_messages_handler(request: Request):
         # if there wasn't any saved history id don't send any message since it is the last saved history we use
         # to send the current message
         return
-    
+
     service = build("gmail", "v1", credentials=creds)
-    subject, body = get_email_subject_and_body(service=service, history_id=saved_history_id)
-    sender_name, sender_email = get_sender_details(service=service, history_id=saved_history_id)
+    subject, body, sender_name, sender_email = get_email_details(
+        service=service, history_id=saved_history_id)
+
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton(
         "Mark as Read", callback_data="db_mark_as_read"))
     bot.send_message(chat_id=receipient_user_id, text=f"""✉️ {sender_name} <{sender_email}>
-    SUBJECT: {subject}
+SUBJECT: {subject}
                      
-    BODY: {body}""", reply_markup=markup)
+BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
@@ -170,8 +171,8 @@ async def receive_messages_handler(request: Request):
 bot.remove_webhook()
 
 # Set webhook
-bot.set_webhook(
-    url=URL_BASE + BOT_TOKEN
-)
+# bot.set_webhook(
+#     url=URL_BASE + BOT_TOKEN
+# )
 
-# bot.polling()
+bot.polling()
