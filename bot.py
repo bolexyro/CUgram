@@ -104,7 +104,10 @@ async def receive_messages_handler(request: Request):
 
     doc_ref = db_async.collection(USERS_COLLECTION).document(recipient_email)
     doc = await doc_ref.get()
+    if not doc.exists:
+        return
     doc = doc.to_dict()
+
     doc_credential = doc['credential']
     creds = Credentials(
         token=doc_credential['token'],
