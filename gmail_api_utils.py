@@ -42,7 +42,7 @@ def get_email_details(service, history_id):
     subject = next(header["value"]
                    for header in headers if header["name"] == "Subject")
 
-    body, attachments = extract_body_and_attachments(message, message_id)
+    body, attachments = extract_body_and_attachments(service, message, message_id)
 
     # Truncate body if it exceeds 4096 characters
     body = truncate_string_with_ellipsis(body)
@@ -50,7 +50,7 @@ def get_email_details(service, history_id):
     return sender_name, sender_email, subject, body, attachments, message_id
 
 
-def extract_body_and_attachments(message, message_id):
+def extract_body_and_attachments(service, message, message_id):
     body = ""
     attachments = []
 
