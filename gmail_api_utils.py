@@ -15,7 +15,7 @@ def get_email_details(service, history_id):
     messages = history.get("history", [])
 
     if not messages:
-        return None, None, None, None, None
+        return None, None, None, None, None, None
 
     # Extract message ID
     message_id = messages[0]["messages"][0]["id"]
@@ -42,24 +42,52 @@ def get_email_details(service, history_id):
     subject = next(header["value"]
                    for header in headers if header["name"] == "Subject")
 
-    # Extract body
-    parts = message["payload"].get("parts", [])
-    body = ""
-
-    for part in parts:
-        if part["mimeType"] == "text/plain":
-            body = base64.urlsafe_b64decode(
-                part["body"]["data"]).decode("utf-8")
-            break
-
-    if not body and not parts:
-        body = base64.urlsafe_b64decode(
-            message["payload"]["body"]["data"]).decode("utf-8")
+    body, attachments = extract_body_and_attachments(message, message_id)
 
     # Truncate body if it exceeds 4096 characters
     body = truncate_string_with_ellipsis(body)
 
-    return sender_name, sender_email, subject, body, message_id
+    return sender_name, sender_email, subject, body, attachments, message_id
+
+
+def extract_body_and_attachments(message, message_id):
+    body = ""
+    attachments = []
+
+    # Check the parts of the message
+    parts = message["payload"].get("parts", [])
+    for part in parts:
+        mime_type = part.get("mimeType")
+        if mime_type == "text/plain":
+            body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8")
+        elif mime_type.startswith("image/") or mime_type == "application/pdf":
+            # For images or other files, store them as attachments
+           
+            if 'data' in part['body']:
+                file_data = base64.urlsafe_b64decode(part['body']['data'].encode('UTF-8'))
+                    #self.stdout.write('FileData for %s, %s found! size: %s' % (message['id'], part['filename'], part['size']))
+            elif 'attachmentId' in part['body']:
+                attachment = service.users().messages().attachments().get(
+                    userId='me', messageId=message_id, id=part['body']['attachmentId']
+                ).execute()
+                file_data = base64.urlsafe_b64decode(attachment['data'].encode('UTF-8'))
+            else:
+                file_data = None
+            if file_data:
+                attachment = {
+                    "filename": part["filename"],
+                    "mimeType": mime_type,
+                    "data": file_data,
+                }
+                attachments.append(attachment)
+
+
+    # If no body in parts, check the main body
+    if not body and not parts:
+        body = base64.urlsafe_b64decode(
+            message["payload"]["body"]["data"]).decode("utf-8")
+
+    return body, attachments
 
 
 def truncate_string_with_ellipsis(s: str, max_length: int = 4096) -> str:
@@ -87,16 +115,17 @@ def mark_unmark_message_as_read(service, message_id, mark_as_read: bool):
         
 
 
-
-# service = build("gmail", "v1", credentials=creds)
 # mark_unmark_message_as_read(service, '193796d389183e23', False)
-# history_id = "1754371"
 
-# sender_name, sender_email, subject, body = get_email_details(
-#     service, history_id)
+service = build("gmail", "v1", credentials=creds)
+history_id = "1757688"
 
-# print("Sender name:", sender_name)
-# print("Sender email:", sender_email)
+sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
+    service, history_id)
 
-# print("Subject:", subject)
-# print("Body:", body)
+print("Sender name:", sender_name)
+print("Sender email:", sender_email)
+
+print("Subject:", subject)
+print("Body:", body)
+print("Attachments:", attachments)

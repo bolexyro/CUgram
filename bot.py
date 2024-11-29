@@ -1,4 +1,5 @@
 import base64
+from io import BytesIO
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import os
@@ -129,7 +130,6 @@ async def receive_messages_handler(request: Request):
             bot.send_message(chat_id=receipient_user_id,
                              text="Looks like something is wrong with your credentials. Please reauthorize me.", reply_markup=gen_markup(receipient_user_id))
             return
-   
 
     if not saved_history_id:
         # if there wasn't any saved history id don't send any message since it is the last saved history we use
@@ -137,12 +137,12 @@ async def receive_messages_handler(request: Request):
         return
 
     service = build("gmail", "v1", credentials=creds)
-    sender_name, sender_email, subject, body, message_id = get_email_details(
+    sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
         service=service, history_id=saved_history_id)
-    
+
     if not subject and not body and not sender_name and not sender_email and not message_id:
         return
-    
+
     if doc.get('message_id', None) == message_id:
         return
     data = {
@@ -164,15 +164,24 @@ async def receive_messages_handler(request: Request):
         USERS_COLLECTION).document(recipient_email)
     await doc_ref.set(data)
 
-
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton(
         "Mark as Read", callback_data=f"cb*mark_as_read*{message_id}"))
+
     bot.send_message(chat_id=receipient_user_id, text=f"""✉️ {sender_name} <{sender_email}>
 SUBJECT: {subject}
                      
 BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 
+    for attachment in attachments:
+        file_data = BytesIO(attachment["data"])
+        file_data.name = attachment["filename"]
+        if attachment['mimeType'].startswith("image/"):
+            bot.send_photo(receipient_user_id, file_data,
+                           caption="Here is the image!")
+        elif attachment['mimeType'] == "application/pdf":
+            bot.send_document(receipient_user_id, file_data,
+                              caption="Here is your file!")
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
 
