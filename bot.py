@@ -155,7 +155,7 @@ async def receive_messages_handler(request: Request):
     service = build("gmail", "v1", credentials=creds)
     sender_name, sender_email, subject, body, message_id = get_email_details(
         service=service, history_id=saved_history_id)
-    
+
     if not subject and not body and not sender_name and not sender_email:
         return
 
@@ -172,7 +172,7 @@ BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cb"))
 def callback_query(call: CallbackQuery):
-    action = call.data.split('*')[1]
+    action, email_message_id = call.data.split('*')[1], call.data.split('*')[2]
 
     if action == "mark_as_read":
         users_ref = db_without_async.collection(USERS_COLLECTION)
@@ -194,13 +194,14 @@ def callback_query(call: CallbackQuery):
         else:
             return
         service = build("gmail", "v1", credentials=creds)
-        mark_unmark_message_as_read(service=service, message_id = call.data.split('*')[2], mark_as_read=True)
+        mark_unmark_message_as_read(
+            service=service, message_id=email_message_id, mark_as_read=True)
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(
-        "Unmark as Read", callback_data=f"cb*unmark_as_read*{call.data.split('*')[2]}"))
+            "Unmark as Read", callback_data=f"cb*unmark_as_read*{email_message_id}"))
         bot.edit_message_reply_markup(
-            chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-        
+            chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
+
     elif action == "unmark_as_read":
         users_ref = db_without_async.collection(USERS_COLLECTION)
         query_ref = users_ref.where(filter=FieldFilter(
@@ -218,16 +219,16 @@ def callback_query(call: CallbackQuery):
                 client_secret=doc_credential['client_secret'],
                 granted_scopes=doc_credential['granted_scopes'],
             )
-        else: 
+        else:
             return
         service = build("gmail", "v1", credentials=creds)
-        mark_unmark_message_as_read(service=service, message_id = call.data.split('*')[2], mark_as_read=False)
+        mark_unmark_message_as_read(
+            service=service, message_id=email_message_id, mark_as_read=False)
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(
-        "Mark as Read", callback_data=f"cb*mark_as_read*{call.data.split('*')[2]}"))
+            "Mark as Read", callback_data=f"cb*mark_as_read*{email_message_id}"))
         bot.edit_message_reply_markup(
-            chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-
+            chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
 
 
 bot.remove_webhook()
