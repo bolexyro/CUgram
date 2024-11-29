@@ -140,7 +140,7 @@ async def receive_messages_handler(request: Request):
     sender_name, sender_email, subject, body, message_id = get_email_details(
         service=service, history_id=saved_history_id)
     
-    if doc['message_id'] == message_id:
+    if doc.get('message_id', None) == message_id:
         return
     data = {
         'history_id': history_id,
