@@ -115,17 +115,18 @@ def mark_unmark_message_as_read(service, message_id, mark_as_read: bool):
         
 
 
-# mark_unmark_message_as_read(service, '193796d389183e23', False)
+if __name__ == "__main__":
+    # mark_unmark_message_as_read(service, '193796d389183e23', False)
 
-service = build("gmail", "v1", credentials=creds)
-history_id = "1757688"
+    service = build("gmail", "v1", credentials=creds)
+    history_id = "1757688"
 
-sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
-    service, history_id)
+    sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
+        service, history_id)
 
-print("Sender name:", sender_name)
-print("Sender email:", sender_email)
+    print("Sender name:", sender_name)
+    print("Sender email:", sender_email)
 
-print("Subject:", subject)
-print("Body:", body)
-print("Attachments:", attachments)
+    print("Subject:", subject)
+    print("Body:", body)
+    print("Attachments:", attachments)
