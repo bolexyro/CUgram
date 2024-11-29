@@ -198,11 +198,11 @@ def callback_query(call: CallbackQuery):
             service=service, message_id=email_message_id, mark_as_read=True)
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(
-            "Unmark as Read", callback_data=f"cb*unmark_as_read*{email_message_id}"))
+            "Mark as Unread", callback_data=f"cb*mark_as_unread*{email_message_id}"))
         bot.edit_message_reply_markup(
             chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
 
-    elif action == "unmark_as_read":
+    elif action == "mark_as_unread":
         users_ref = db_without_async.collection(USERS_COLLECTION)
         query_ref = users_ref.where(filter=FieldFilter(
             "user_id", "==", f"{call.from_user.id}"))

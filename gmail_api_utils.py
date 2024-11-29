@@ -4,7 +4,7 @@ from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 import re
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 creds = Credentials.from_authorized_user_file('token.json')
 
 
@@ -79,16 +79,17 @@ def mark_unmark_message_as_read(service, message_id, mark_as_read: bool):
             body={"removeLabelIds": ["UNREAD"]}
         ).execute()
 
+        print(f"Message with ID: {message_id} marked as read.")
     else:
         msg_labels = {'removeLabelIds': ['INBOX'], 'addLabelIds': ['UNREAD']}
         service.users().messages().modify(userId="me", id=message_id, body=msg_labels).execute()
+        print(f"Message with ID: {message_id} marked as unread.")
         
-    print(f"Message with ID: {message_id} marked as read.")
 
 
 
 # service = build("gmail", "v1", credentials=creds)
-
+# mark_unmark_message_as_read(service, '193796d389183e23', False)
 # history_id = "1754371"
 
 # sender_name, sender_email, subject, body = get_email_details(

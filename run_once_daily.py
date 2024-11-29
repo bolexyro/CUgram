@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)

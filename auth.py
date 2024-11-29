@@ -17,7 +17,7 @@ os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 SECRET_KEY = os.getenv('SECRET_KEY')
 OAUTH_CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 URL_BASE = os.getenv("URL_BASE")
 
 app = FastAPI()
