@@ -63,25 +63,14 @@ def extract_body_and_attachments(service, message, message_id):
         elif mime_type.startswith("image/") or mime_type == "application/pdf":
             # For images or other files, store them as attachments
            
-            if 'data' in part['body']:
-                file_data = base64.urlsafe_b64decode(part['body']['data'].encode('UTF-8'))
-                    #self.stdout.write('FileData for %s, %s found! size: %s' % (message['id'], part['filename'], part['size']))
-            elif 'attachmentId' in part['body']:
-                attachment = service.users().messages().attachments().get(
-                    userId='me', messageId=message_id, id=part['body']['attachmentId']
-                ).execute()
-                file_data = base64.urlsafe_b64decode(attachment['data'].encode('UTF-8'))
-            else:
-                file_data = None
-            if file_data:
+            if 'attachmentId' in part['body']:
                 attachment = {
                     "filename": part["filename"],
                     "mimeType": mime_type,
-                    "data": file_data,
+                    "id": part['body']['attachmentId'],
                 }
                 attachments.append(attachment)
-
-
+    
     # If no body in parts, check the main body
     if not body and not parts:
         body = base64.urlsafe_b64decode(

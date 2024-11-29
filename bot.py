@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 import os
 from dotenv import load_dotenv
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyParameters
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleAuthTransportRequest
@@ -165,47 +165,61 @@ async def receive_messages_handler(request: Request):
     await doc_ref.set(data)
 
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton(
-        "Mark as Read", callback_data=f"cb*mark_as_read*{message_id}"))
+    for attachment in attachments:
+        if attachment['mimeType'].startswith("image/"):
+            markup.add(InlineKeyboardButton(
+             f"🖼 {attachment['filename']}", callback_data=f"cb*get_attachment*{attachment['mimeType']}*{message_id}*{attachment['id']}"))
+            
+        elif attachment['mimeType'] == "application/pdf":
+            markup.add(InlineKeyboardButton(
+             f"📎 {attachment['filename']}", callback_data=f"cb*get_attachment*{attachment['mimeType']}*{message_id}*{attachment['id']}"))
+    
+    markup.add(InlineKeyboardButton("Mark as Read", callback_data=f"cb*mark_as_read*{message_id}"))
 
     bot.send_message(chat_id=receipient_user_id, text=f"""✉️ {sender_name} <{sender_email}>
 SUBJECT: {subject}
                      
 BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 
-    for attachment in attachments:
-        file_data = BytesIO(attachment["data"])
-        file_data.name = attachment["filename"]
-        if attachment['mimeType'].startswith("image/"):
-            bot.send_photo(receipient_user_id, file_data,
-                           caption="Here is the image!")
-        elif attachment['mimeType'] == "application/pdf":
-            bot.send_document(receipient_user_id, file_data,
-                              caption="Here is your file!")
     return JSONResponse(content={"message": "OK"}, status_code=200)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cb"))
 def callback_query(call: CallbackQuery):
-    action, email_message_id = call.data.split('*')[1], call.data.split('*')[2]
-    if action == "mark_as_read":
-        users_ref = db_without_async.collection(USERS_COLLECTION)
-        query_ref = users_ref.where(filter=FieldFilter(
-            "user_id", "==", f"{call.from_user.id}"))
-        docs = query_ref.get()
-        if len(docs) == 0:
-            return
-        doc = docs[0].to_dict()
-        doc_credential = doc['credential']
-        creds = Credentials(
-            token=doc_credential['token'],
-            refresh_token=doc_credential['refresh_token'],
-            token_uri=doc_credential['token_uri'],
-            client_id=doc_credential['client_id'],
-            client_secret=doc_credential['client_secret'],
-            granted_scopes=doc_credential['granted_scopes'],
-        )
-        service = build("gmail", "v1", credentials=creds)
+    action = call.data.split('*')[1]
+    users_ref = db_without_async.collection(USERS_COLLECTION)
+    query_ref = users_ref.where(filter=FieldFilter(
+        "user_id", "==", f"{call.from_user.id}"))
+    docs = query_ref.get()
+    if len(docs) == 0:
+        return
+    doc = docs[0].to_dict()
+    doc_credential = doc['credential']
+    creds = Credentials(
+        token=doc_credential['token'],
+        refresh_token=doc_credential['refresh_token'],
+        token_uri=doc_credential['token_uri'],
+        client_id=doc_credential['client_id'],
+        client_secret=doc_credential['client_secret'],
+        granted_scopes=doc_credential['granted_scopes'],
+    )
+    service = build("gmail", "v1", credentials=creds)
+    if action == "get_attachment":
+        mime_type, email_message_id, attachment_id = call.data.split('*')[2], call.data.split('*')[3], call.data.split('*')[4]
+        attachment = service.users().messages().attachments().get(
+                    userId='me', messageId=email_message_id, id=attachment_id
+                ).execute()
+        file_data = BytesIO(base64.urlsafe_b64decode(attachment['data'].encode('UTF-8')))
+        # file_data.name = attachment["filename"]
+
+        if mime_type.startswith("image/"):
+            bot.send_photo(chat_id=call.message.chat.id, photo=file_data, reply_parameters=ReplyParameters(chat_id=call.message.chat.id))
+        elif mime_type == "application/pdf":
+            bot.send_document(chat_id=call.message.chat.id, photo=file_data, reply_parameters=ReplyParameters(chat_id=call.message.chat.id))
+
+    elif action == "mark_as_read":
+        email_message_id = call.data.split('*')[2]
+        
         mark_unmark_message_as_read(
             service=service, message_id=email_message_id, mark_as_read=True)
         markup = InlineKeyboardMarkup()
@@ -215,25 +229,7 @@ def callback_query(call: CallbackQuery):
             chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
 
     elif action == "mark_as_unread":
-        users_ref = db_without_async.collection(USERS_COLLECTION)
-        query_ref = users_ref.where(filter=FieldFilter(
-            "user_id", "==", f"{call.from_user.id}"))
-        docs = query_ref.get()
-
-        if len(docs) != 0:
-            doc = docs[0].to_dict()
-            doc_credential = doc['credential']
-            creds = Credentials(
-                token=doc_credential['token'],
-                refresh_token=doc_credential['refresh_token'],
-                token_uri=doc_credential['token_uri'],
-                client_id=doc_credential['client_id'],
-                client_secret=doc_credential['client_secret'],
-                granted_scopes=doc_credential['granted_scopes'],
-            )
-        else:
-            return
-        service = build("gmail", "v1", credentials=creds)
+        email_message_id = call.data.split('*')[2]
         mark_unmark_message_as_read(
             service=service, message_id=email_message_id, mark_as_read=False)
         markup = InlineKeyboardMarkup()
