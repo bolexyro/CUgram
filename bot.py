@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 import os
 from dotenv import load_dotenv
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleAuthTransportRequest
@@ -13,7 +13,7 @@ from firebase_admin import credentials, firestore_async, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 import json
 
-from fetch_gmail_emails import get_email_details
+from gmail_api_utils import get_email_details, mark_unmark_message_as_read
 
 
 load_dotenv()
@@ -153,22 +153,81 @@ async def receive_messages_handler(request: Request):
         return
 
     service = build("gmail", "v1", credentials=creds)
-    sender_name, sender_email, subject, body,  = get_email_details(
+    sender_name, sender_email, subject, body, message_id = get_email_details(
         service=service, history_id=saved_history_id)
     
     if not subject and not body and not sender_name and not sender_email:
         return
 
     markup = InlineKeyboardMarkup()
-    markup.row_width = 2
     markup.add(InlineKeyboardButton(
-        "Mark as Read", callback_data="db_mark_as_read"))
+        "Mark as Read", callback_data=f"cb*mark_as_read*{message_id}"))
     bot.send_message(chat_id=receipient_user_id, text=f"""✉️ {sender_name} <{sender_email}>
 SUBJECT: {subject}
                      
 BODY: {body}""", reply_markup=markup, parse_mode='markdown')
 
     return JSONResponse(content={"message": "OK"}, status_code=200)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cb"))
+def callback_query(call: CallbackQuery):
+    action = call.data.split('*')[1]
+
+    if action == "mark_as_read":
+        users_ref = db_without_async.collection(USERS_COLLECTION)
+        query_ref = users_ref.where(filter=FieldFilter(
+            "user_id", "==", f"{call.from_user.id}"))
+        docs = query_ref.get()
+
+        if len(docs) != 0:
+            doc = docs[0].to_dict()
+            doc_credential = doc['credential']
+            creds = Credentials(
+                token=doc_credential['token'],
+                refresh_token=doc_credential['refresh_token'],
+                token_uri=doc_credential['token_uri'],
+                client_id=doc_credential['client_id'],
+                client_secret=doc_credential['client_secret'],
+                granted_scopes=doc_credential['granted_scopes'],
+            )
+        else:
+            return
+        service = build("gmail", "v1", credentials=creds)
+        mark_unmark_message_as_read(service=service, message_id = call.data.split('*')[2], mark_as_read=True)
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(
+        "Unmark as Read", callback_data=f"cb*unmark_as_read*{call.data.split('*')[2]}"))
+        bot.edit_message_reply_markup(
+            chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+        
+    elif action == "unmark_as_read":
+        users_ref = db_without_async.collection(USERS_COLLECTION)
+        query_ref = users_ref.where(filter=FieldFilter(
+            "user_id", "==", f"{call.from_user.id}"))
+        docs = query_ref.get()
+
+        if len(docs) != 0:
+            doc = docs[0].to_dict()
+            doc_credential = doc['credential']
+            creds = Credentials(
+                token=doc_credential['token'],
+                refresh_token=doc_credential['refresh_token'],
+                token_uri=doc_credential['token_uri'],
+                client_id=doc_credential['client_id'],
+                client_secret=doc_credential['client_secret'],
+                granted_scopes=doc_credential['granted_scopes'],
+            )
+        else: 
+            return
+        service = build("gmail", "v1", credentials=creds)
+        mark_unmark_message_as_read(service=service, message_id = call.data.split('*')[2], mark_as_read=False)
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(
+        "Mark as Read", callback_data=f"cb*mark_as_read*{call.data.split('*')[2]}"))
+        bot.edit_message_reply_markup(
+            chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+
 
 
 bot.remove_webhook()

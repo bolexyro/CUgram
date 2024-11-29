@@ -59,7 +59,7 @@ def get_email_details(service, history_id):
     # Truncate body if it exceeds 4096 characters
     body = truncate_string_with_ellipsis(body)
 
-    return sender_name, sender_email, subject, body
+    return sender_name, sender_email, subject, body, message_id
 
 
 def truncate_string_with_ellipsis(s: str, max_length: int = 4096) -> str:
@@ -69,6 +69,22 @@ def truncate_string_with_ellipsis(s: str, max_length: int = 4096) -> str:
         truncated_length = max_length - len(ellipsis)
         return s[:truncated_length] + ellipsis
     return s
+
+def mark_unmark_message_as_read(service, message_id, mark_as_read: bool):
+    """Mark the message as read by removing the 'UNREAD' label."""
+    if mark_as_read:
+        service.users().messages().modify(
+            userId="me",
+            id=message_id,
+            body={"removeLabelIds": ["UNREAD"]}
+        ).execute()
+
+    else:
+        msg_labels = {'removeLabelIds': ['INBOX'], 'addLabelIds': ['UNREAD']}
+        service.users().messages().modify(userId="me", id=message_id, body=msg_labels).execute()
+        
+    print(f"Message with ID: {message_id} marked as read.")
+
 
 
 # service = build("gmail", "v1", credentials=creds)
