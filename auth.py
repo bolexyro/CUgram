@@ -1,15 +1,13 @@
 from fastapi import FastAPI, Request, status, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 import os
 from dotenv import load_dotenv
 import google_auth_oauthlib
 from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request as GoogleAuthTransportRequest
 import firebase_admin
 from firebase_admin import credentials, firestore_async
-
+import grequests
 
 load_dotenv()
 
@@ -20,6 +18,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 OAUTH_CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+URL_BASE = os.getenv("URL_BASE")
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -27,6 +26,7 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
 db = firestore_async.client()
+
 
 @app.get(path='/')
 async def index():
@@ -75,10 +75,10 @@ async def oauth2callback(request: Request):
     credentials = flow.credentials
     service = build("gmail", "v1", credentials=credentials)
     request = {
-    'labelIds': ['INBOX'],
-    'topicName': 'projects/cugram-442817/topics/EmailService',
-    'labelFilterBehavior': 'INCLUDE'
-}
+        'labelIds': ['INBOX'],
+        'topicName': 'projects/cugram-442817/topics/EmailService',
+        'labelFilterBehavior': 'INCLUDE'
+    }
 
     service.users().watch(userId='me', body=request).execute()
     email = service.users().getProfile(userId='me').execute()['emailAddress']
@@ -86,18 +86,24 @@ async def oauth2callback(request: Request):
     data = {
         'user_id': user_id,
         'email': email,
-        'token': credentials.token,
-        'refresh_token': credentials.refresh_token,
-        'token_uri': credentials.token_uri,
-        'client_id': credentials.client_id,
-        'client_secret': credentials.client_secret,
-        'granted_scopes': credentials.granted_scopes}
+        'credential': {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'granted_scopes': credentials.granted_scopes
+        },
+    }
 
     doc_ref = db.collection("users").document(email)
     await doc_ref.set(data)
 
     # TODO you can show them an error if they denied an important scope, if you have multiple scopes
     # features = check_granted_scopes(credentials)
+    url = URL_BASE + user_id
+    # this request is so that the bot sends the user a confirmation message
+    grequests.get(url=url)
     return RedirectResponse('https://t.me/CUgram_bot', status_code=status.HTTP_303_SEE_OTHER)
 
 
@@ -108,4 +114,3 @@ def check_granted_scopes(credentials):
     else:
         features['mail'] = False
     return features
-

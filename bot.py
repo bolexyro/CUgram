@@ -9,7 +9,8 @@ from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleAuthTransportRequest
 import firebase_admin
-from firebase_admin import credentials, firestore_async
+from firebase_admin import credentials, firestore_async, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 import json
 
 
@@ -19,14 +20,15 @@ URL_BASE = os.getenv("URL_BASE")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-
+USERS_COLLECTION = "users"
 
 app = FastAPI()
 bot = telebot.TeleBot(BOT_TOKEN)
 
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
-db = firestore_async.client()
+db_async = firestore_async.client()
+db_without_async = firestore.client()
 
 
 def gen_markup(user_id: str):
@@ -40,7 +42,7 @@ def gen_markup(user_id: str):
 @app.post(path=f"/{BOT_TOKEN}")
 def process_webhook_text_pay_bot(update: dict):
     """
-    Process webhook calls for textpay
+    Process webhook calls for cugram
     """
     if update:
         update = telebot.types.Update.de_json(update)
@@ -51,9 +53,40 @@ def process_webhook_text_pay_bot(update: dict):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # TODO check if their details already exists in the db
+    users_ref = db_without_async.collection(USERS_COLLECTION)
+    query_ref = users_ref.where(filter=FieldFilter(
+        "user_id", "==", f"{message.from_user.id}"))
+    docs = query_ref.get()
+
+    if len(docs) != 0:
+        doc = docs[0].to_dict()
+        doc_credential = doc['credential']
+        creds = Credentials(
+            token=doc_credential['token'],
+            refresh_token=doc_credential['refresh_token'],
+            token_uri=doc_credential['token_uri'],
+            client_id=doc_credential['client_id'],
+            client_secret=doc_credential['client_secret'],
+            granted_scopes=doc_credential['granted_scopes'],
+        )
+        if not creds.valid:
+            if creds.expired and creds.refresh_token:
+                creds.refresh(GoogleAuthTransportRequest())
+            else:
+                bot.send_message(chat_id=message.from_user.id,
+                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup(message.from_user.id))
+                return
+        bot.send_message(chat_id=message.from_user.id,
+                         text=f"You are authorized as {doc['email']}")
+        return
+
     bot.send_message(chat_id=message.from_user.id,
                      text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup(message.from_user.id))
+
+
+@app.get('/auth-complete/{user_id}')
+def on_auth_completed(user_id: str):
+    bot.send_message(user_id, text='Integration completed ✅')
 
 
 @app.post("/push-handlers/receive_messages")
@@ -69,35 +102,42 @@ async def receive_messages_handler(request: Request):
     history_id = payload['historyId']
     recipient_email = payload['emailAddress']
 
-    doc_ref = db.collection("users").document(recipient_email)
+    doc_ref = db_async.collection(USERS_COLLECTION).document(recipient_email)
     doc = await doc_ref.get()
     doc = doc.to_dict()
+    doc_credential = doc['credential']
     creds = Credentials(
-        token=doc['token'],
-        refresh_token=doc['refresh_token'],
-        token_uri=doc['token_uri'],
-        client_id=doc['client_id'],
-        client_secret=doc['client_secret'],
-        granted_scopes=doc['granted_scopes']
+        token=doc_credential['token'],
+        refresh_token=doc_credential['refresh_token'],
+        token_uri=doc_credential['token_uri'],
+        client_id=doc_credential['client_id'],
+        client_secret=doc_credential['client_secret'],
+        granted_scopes=doc_credential['granted_scopes'],
     )
     receipient_user_id = doc['user_id']
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+    if not creds.valid:
+        if creds.expired and creds.refresh_token:
             creds.refresh(GoogleAuthTransportRequest())
         else:
             bot.send_message(chat_id=receipient_user_id,
                              text="Looks like something is wrong with your credentials. Please reauthorize me.", reply_markup=gen_markup(receipient_user_id))
+            return
         data = {
             'email': recipient_email,
-            'token': creds.token,
-            'refresh_token': creds.refresh_token,
-            'token_uri': creds.token_uri,
-            'client_id': creds.client_id,
-            'client_secret': creds.client_secret,
-            'granted_scopes': creds.granted_scopes}
+            'user_id': receipient_user_id,
+            'credential': {
+                'token': creds.token,
+                'refresh_token': creds.refresh_token,
+                'token_uri': creds.token_uri,
+                'client_id': creds.client_id,
+                'client_secret': creds.client_secret,
+                'granted_scopes': creds.granted_scopes
+            },
+        }
 
-        doc_ref = db.collection("users").document(recipient_email)
+        doc_ref = db_async.collection(
+            USERS_COLLECTION).document(recipient_email)
         await doc_ref.set(data)
 
     markup = InlineKeyboardMarkup()
