@@ -179,20 +179,20 @@ def callback_query(call: CallbackQuery):
         query_ref = users_ref.where(filter=FieldFilter(
             "user_id", "==", f"{call.from_user.id}"))
         docs = query_ref.get()
-
-        if len(docs) != 0:
-            doc = docs[0].to_dict()
-            doc_credential = doc['credential']
-            creds = Credentials(
-                token=doc_credential['token'],
-                refresh_token=doc_credential['refresh_token'],
-                token_uri=doc_credential['token_uri'],
-                client_id=doc_credential['client_id'],
-                client_secret=doc_credential['client_secret'],
-                granted_scopes=doc_credential['granted_scopes'],
-            )
-        else:
+        print(f'length of docs is {len(docs)}')
+        if len(docs) == 0:
             return
+        print(f'doc is {docs[0]}')
+        doc = docs[0].to_dict()
+        doc_credential = doc['credential']
+        creds = Credentials(
+            token=doc_credential['token'],
+            refresh_token=doc_credential['refresh_token'],
+            token_uri=doc_credential['token_uri'],
+            client_id=doc_credential['client_id'],
+            client_secret=doc_credential['client_secret'],
+            granted_scopes=doc_credential['granted_scopes'],
+        )
         service = build("gmail", "v1", credentials=creds)
         mark_unmark_message_as_read(
             service=service, message_id=email_message_id, mark_as_read=True)
