@@ -15,7 +15,7 @@ def get_email_details(service, history_id):
     messages = history.get("history", [])
 
     if not messages:
-        return None, None, None, None
+        return None, None, None, None, None
 
     # Extract message ID
     message_id = messages[0]["messages"][0]["id"]
