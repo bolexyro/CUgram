@@ -129,8 +129,22 @@ async def receive_messages_handler(request: Request):
             bot.send_message(chat_id=receipient_user_id,
                              text="Looks like something is wrong with your credentials. Please reauthorize me.", reply_markup=gen_markup(receipient_user_id))
             return
+   
+
+    if not saved_history_id:
+        # if there wasn't any saved history id don't send any message since it is the last saved history we use
+        # to send the current message
+        return
+
+    service = build("gmail", "v1", credentials=creds)
+    sender_name, sender_email, subject, body, message_id = get_email_details(
+        service=service, history_id=saved_history_id)
+    
+    if doc['message_id'] == message_id:
+        return
     data = {
         'history_id': history_id,
+        'message_id': message_id,
         'email': recipient_email,
         'user_id': receipient_user_id,
         'credential': {
@@ -146,16 +160,6 @@ async def receive_messages_handler(request: Request):
     doc_ref = db_async.collection(
         USERS_COLLECTION).document(recipient_email)
     await doc_ref.set(data)
-
-    if not saved_history_id:
-        # if there wasn't any saved history id don't send any message since it is the last saved history we use
-        # to send the current message
-        return
-
-    service = build("gmail", "v1", credentials=creds)
-    sender_name, sender_email, subject, body, message_id = get_email_details(
-        service=service, history_id=saved_history_id)
-    
 
     if not subject and not body and not sender_name and not sender_email:
         return
