@@ -209,10 +209,11 @@ def callback_query(call: CallbackQuery):
         message = service.users().messages().get(userId="me", id=email_message_id, format="full").execute()
         body, attachments = extract_body_and_attachments(message)
         print(f'attachment here {attachments}')
+        print(f'index - {index}, mime_type - {mime_type}')
         attachment = service.users().messages().attachments().get(
                     userId='me', messageId=email_message_id, id=attachments[index]['id']
                 ).execute()
-        print(f'index - {index}, mime_type - {mime_type}')
+        print(f'attachment {attachment}')
         file_data = BytesIO(base64.urlsafe_b64decode(attachment['data'].encode('UTF-8')))
         # file_data.name = attachment["filename"]
         print(f'there is a valid file_data {mime_type}')
