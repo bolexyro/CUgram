@@ -144,7 +144,7 @@ async def receive_messages_handler(request: Request):
 
     if not subject and not body and not sender_name and not sender_email and not message_id:
         return
-    print('we got here 3')
+    print(f"we got here 3 &{doc.get('message_id', None)}, &{message_id}")
     if doc.get('message_id', None) == message_id:
         return
     print('we got here 4')
