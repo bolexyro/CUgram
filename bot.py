@@ -173,7 +173,7 @@ async def receive_messages_handler(request: Request):
         elif attachment['mimeType'] == "application/pdf":
             markup.add(InlineKeyboardButton(
              f"📎 {attachment['filename']}", callback_data=f"cb*get_attachment*{attachment['mimeType']}*{message_id}*{index}"))
-    
+        index += 1
     markup.add(InlineKeyboardButton("Mark as Read", callback_data=f"cb*mark_as_read*{message_id}"))
 
     bot.send_message(chat_id=receipient_user_id, text=f"""✉️ {sender_name} <{sender_email}>
@@ -212,6 +212,7 @@ def callback_query(call: CallbackQuery):
         attachment = service.users().messages().attachments().get(
                     userId='me', messageId=email_message_id, id=attachments[index]['id']
                 ).execute()
+        print(f'index - {index}, mime_type - {mime_type}')
         file_data = BytesIO(base64.urlsafe_b64decode(attachment['data'].encode('UTF-8')))
         # file_data.name = attachment["filename"]
         print(f'there is a valid file_data {mime_type}')
