@@ -14,7 +14,7 @@ from firebase_admin import credentials, firestore_async, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 import json
 
-from gmail_api_utils import get_email_details, mark_unmark_message_as_read
+from gmail_api_utils import extract_body_and_attachments, get_email_details, mark_unmark_message_as_read
 
 
 load_dotenv()
@@ -144,7 +144,6 @@ async def receive_messages_handler(request: Request):
         return
     # if doc.get('message_id', None) == message_id:
     #     return
-    print('we got here 4')
     data = {
         'history_id': history_id,
         'message_id': message_id,
@@ -165,14 +164,15 @@ async def receive_messages_handler(request: Request):
     await doc_ref.set(data)
 
     markup = InlineKeyboardMarkup()
+    index = 0
     for attachment in attachments:
         if attachment['mimeType'].startswith("image/"):
             markup.add(InlineKeyboardButton(
-             f"🖼 {attachment['filename']}", callback_data=f"cb*get_attachment*{attachment['mimeType']}*{message_id}*{attachment['id']}"))
+             f"🖼 {attachment['filename']}", callback_data=f"cb*get_attachment*{attachment['mimeType']}*{message_id}*{index}"))
             
         elif attachment['mimeType'] == "application/pdf":
             markup.add(InlineKeyboardButton(
-             f"📎 {attachment['filename']}", callback_data=f"cb*get_attachment*{attachment['mimeType']}*{message_id}*{attachment['id']}"))
+             f"📎 {attachment['filename']}", callback_data=f"cb*get_attachment*{attachment['mimeType']}*{message_id}*{index}"))
     
     markup.add(InlineKeyboardButton("Mark as Read", callback_data=f"cb*mark_as_read*{message_id}"))
 
@@ -205,9 +205,11 @@ def callback_query(call: CallbackQuery):
     )
     service = build("gmail", "v1", credentials=creds)
     if action == "get_attachment":
-        mime_type, email_message_id, attachment_id = call.data.split('*')[2], call.data.split('*')[3], call.data.split('*')[4]
+        mime_type, email_message_id, index = call.data.split('*')[2], call.data.split('*')[3], call.data.split('*')[4]
+        message = service.users().messages().get(userId="me", id=email_message_id, format="full").execute()
+        body, attachments = extract_body_and_attachments(message)
         attachment = service.users().messages().attachments().get(
-                    userId='me', messageId=email_message_id, id=attachment_id
+                    userId='me', messageId=email_message_id, id=attachments[index]
                 ).execute()
         file_data = BytesIO(base64.urlsafe_b64decode(attachment['data'].encode('UTF-8')))
         # file_data.name = attachment["filename"]
