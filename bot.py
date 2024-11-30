@@ -131,22 +131,19 @@ async def receive_messages_handler(request: Request):
                              text="Looks like something is wrong with your credentials. Please reauthorize me.", reply_markup=gen_markup(receipient_user_id))
             return
     
-    print('we got here 1')
     if not saved_history_id:
         # if there wasn't any saved history id don't send any message since it is the last saved history we use
         # to send the current message
         return
     
-    print('we got here 2')
     service = build("gmail", "v1", credentials=creds)
     sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
         service=service, history_id=saved_history_id)
 
     if not subject and not body and not sender_name and not sender_email and not message_id:
         return
-    print(f"we got here 3 &{doc.get('message_id', None)}, &{message_id}")
-    if doc.get('message_id', None) == message_id:
-        return
+    # if doc.get('message_id', None) == message_id:
+    #     return
     print('we got here 4')
     data = {
         'history_id': history_id,
