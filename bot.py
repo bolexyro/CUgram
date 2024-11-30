@@ -213,7 +213,7 @@ def callback_query(call: CallbackQuery):
                 ).execute()
         file_data = BytesIO(base64.urlsafe_b64decode(attachment['data'].encode('UTF-8')))
         # file_data.name = attachment["filename"]
-
+        print(f'there is a valid file_data {mime_type}')
         if mime_type.startswith("image/"):
             bot.send_photo(chat_id=call.message.chat.id, photo=file_data, reply_parameters=ReplyParameters(chat_id=call.message.chat.id))
         elif mime_type == "application/pdf":
