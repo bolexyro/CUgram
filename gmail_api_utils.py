@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # mark_unmark_message_as_read(service, '193796d389183e23', False)
 
     service = build("gmail", "v1", credentials=creds)
-    history_id = "1757688"
+    history_id = "1758602"
 
     sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
         service, history_id)
