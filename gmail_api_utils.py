@@ -108,14 +108,19 @@ if __name__ == "__main__":
     # mark_unmark_message_as_read(service, '193796d389183e23', False)
 
     service = build("gmail", "v1", credentials=creds)
-    history_id = "1758602"
+    message = service.users().messages().get(userId="me", id='1937aa0b5d6837e2', format="full").execute()
+    body, attachments = extract_body_and_attachments(message)
+    attachment = service.users().messages().attachments().get(
+                    userId='me', messageId='1937aa0b5d6837e2', id=attachments[0]['id']
+                ).execute()
+    # history_id = "1758602"
 
-    sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
-        service, history_id)
+    # sender_name, sender_email, subject, body, attachments, message_id = get_email_details(
+    #     service, history_id)
 
-    print("Sender name:", sender_name)
-    print("Sender email:", sender_email)
+    # print("Sender name:", sender_name)
+    # print("Sender email:", sender_email)
 
-    print("Subject:", subject)
-    print("Body:", body)
-    print("Attachments:", attachments)
+    # print("Subject:", subject)
+    # print("Body:", body)
+    print("Attachments:", attachment.keys())

@@ -43,6 +43,7 @@ def watch():
         service = build("gmail", "v1", credentials=creds)
 
         service.users().watch(userId='me', body=request).execute()
+    print("done running watch")
 
-
-watch()
+if __name__ == "__main__":
+    watch()
