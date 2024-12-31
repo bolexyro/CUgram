@@ -14,7 +14,7 @@ from firebase_admin import credentials, firestore_async, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 import json
 
-from gmail_api_utils import extract_body_and_attachments, get_email_details, mark_unmark_message_as_read
+from utils.gmail_api_utils import extract_body_and_attachments, get_email_details, mark_unmark_message_as_read
 
 
 load_dotenv()

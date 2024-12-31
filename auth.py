@@ -1,27 +1,34 @@
+# Where I got some info from https://docs.replit.com/additional-resources/google-auth-in-flask
+
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 import os
 from dotenv import load_dotenv
 import google_auth_oauthlib
-from googleapiclient.discovery import build
 import firebase_admin
 from firebase_admin import credentials, firestore_async
 import requests
+
+from pydantic import BaseModel
+
+class User(BaseModel):
+    picture: str | None = None
+    email: str
 
 load_dotenv()
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+FASTAPI_SECRET_KEY = os.getenv('FASTAPI_SECRET_KEY')
 OAUTH_CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
-SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
+SCOPES = ["https://www.googleapis.com/auth/userinfo.email"]
 URL_BASE = os.getenv("URL_BASE")
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.add_middleware(SessionMiddleware, secret_key=FASTAPI_SECRET_KEY)
 
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
@@ -40,11 +47,7 @@ async def authorize(user_id: str, request: Request):
 
     flow.redirect_uri = request.url_for('oauth2callback')
 
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        login_hint='hint@example.com',
-        prompt='consent')
+    authorization_url, state = flow.authorization_url()
 
     request.session['state'] = state
     request.session['user_id'] = user_id
@@ -72,45 +75,29 @@ async def oauth2callback(request: Request):
     authorization_response = str(request.url)
     flow.fetch_token(authorization_response=authorization_response)
 
-    credentials = flow.credentials
-    service = build("gmail", "v1", credentials=credentials)
-    request = {
-        'labelIds': ['INBOX'],
-        'topicName': 'projects/cugram-442817/topics/EmailService',
-        'labelFilterBehavior': 'INCLUDE'
-    }
-
-    service.users().watch(userId='me', body=request).execute()
-    email = service.users().getProfile(userId='me').execute()['emailAddress']
+    credentials = flow.credentials    
+    user = get_user_info(credentials.token)
 
     data = {
-        'user_id': user_id,
-        'email': email,
-        'credential': {
-            'token': credentials.token,
-            'refresh_token': credentials.refresh_token,
-            'token_uri': credentials.token_uri,
-            'client_id': credentials.client_id,
-            'client_secret': credentials.client_secret,
-            'granted_scopes': credentials.granted_scopes
-        },
+        'email': user.email,
     }
 
-    doc_ref = db.collection("users").document(email)
+    doc_ref = db.collection("users").document(user_id)
     await doc_ref.set(data)
 
-    # TODO you can show them an error if they denied an important scope, if you have multiple scopes
-    # features = check_granted_scopes(credentials)
-    url = URL_BASE + f'auth-complete/{user_id}'
-    # this request is so that the bot sends the user a confirmation message
-    requests.get(url=url)
+    # url = URL_BASE + f'auth-complete/{user_id}'
+    # # this request is so that the bot sends the user a confirmation message
+    # requests.get(url=url)
     return RedirectResponse('https://t.me/CUgram_bot', status_code=status.HTTP_303_SEE_OTHER)
 
 
-def check_granted_scopes(credentials):
-    features = {}
-    if 'https://www.googleapis.com/auth/gmail.readonly' in credentials['granted_scopes']:
-        features['mail'] = True
+def get_user_info(access_token: str) -> User:
+    response = requests.get("https://www.googleapis.com/oauth2/v3/userinfo", headers={
+       "Authorization": f"Bearer {access_token}"
+   })
+    if response.status_code == 200:
+        user_info = response.json()
+        return User(**user_info)
     else:
-        features['mail'] = False
-    return features
+        print(f"Failed to fetch user info: {response.status_code} {response.text}")
+        return None
