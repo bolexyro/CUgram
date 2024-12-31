@@ -137,7 +137,7 @@ bot.remove_webhook()
 
 # Set webhook
 bot.set_webhook(
-    url=URL_BASE + BOT_TOKEN
+    url=BOT_URL_BASE + BOT_TOKEN
 )
 
 # bot.polling()
