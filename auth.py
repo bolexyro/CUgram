@@ -25,7 +25,7 @@ FASTAPI_AUTH_SECRET_KEY = os.getenv('FASTAPI_AUTH_SECRET_KEY')
 OAUTH_CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 SCOPES = ["https://www.googleapis.com/auth/userinfo.email"]
-BOT_URL_BASE = os.getenv("BOT_URL_BASE")
+STUDENT_BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=FASTAPI_AUTH_SECRET_KEY)
@@ -85,7 +85,7 @@ async def oauth2callback(request: Request):
     doc_ref = db.collection("users").document(user_id)
     await doc_ref.set(data)
 
-    url = BOT_URL_BASE + f'auth-complete/{user_id}'
+    url = STUDENT_BOT_URL_BASE + f'auth-complete/{user_id}'
     # this request is so that the bot sends the user a confirmation message
     requests.get(url=url)
     return RedirectResponse('https://t.me/CUgram_bot', status_code=status.HTTP_303_SEE_OTHER)
