@@ -66,15 +66,16 @@ def send_welcome(message):
     if user.exists:
         user = user.to_dict()
         bot.send_message(chat_id=message.from_user.id,
-                         text=f"You are authorized as {user['email']}")
+                         text=f"You're already verified with your Covenant University email  {user['email']}. Feel free to continue using the bot.")
         return
     bot.send_message(chat_id=message.from_user.id,
-                     text="Hi here! Please authorize me to set up a Gmail integration.", reply_markup=gen_markup(message.from_user.id))
+                     text="Hello! To access this bot, you need to verify that you have a valid Covenant University email. Please sign in with your Google account using the button below.", reply_markup=gen_markup(message.from_user.id))
 
 
 @app.get('/auth-complete/{user_id}')
 def on_auth_completed(user_id: str):
-    bot.send_message(user_id, text='Integration completed ✅')
+    bot.send_message(
+        user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages.✅')
 
 
 @app.post(path='/message')
