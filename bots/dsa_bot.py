@@ -4,14 +4,24 @@ import telebot
 from telebot import custom_filters
 from telebot.types import Message as TelegramMessage, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from telebot.storage import StateMemoryStorage
-from telebot.handler_backends import State, StatesGroup  # states
 from fastapi import FastAPI
 import requests
-from pydantic import BaseModel
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
-from enum import Enum
-import io
+
+import sys
+# Get the current script's directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Get the parent directory
+parent_dir = os.path.dirname(current_dir)
+
+# Append the parent directory to sys.path
+sys.path.append(parent_dir)
+
+from models.enums import AuthStatus
+from models.states import UserState
+from models.schemas import Message
 
 load_dotenv()
 
@@ -33,17 +43,6 @@ db_async = firestore_async.client()
 db_without_async = firestore.client()
 
 
-class Message(BaseModel):
-    text: str
-    attachment: str | None = None
-    content_type: str | None = None
-
-
-class UserState(StatesGroup):
-    message = State()
-    attachments = State()
-
-
 @app.post(path=f"/{BOT_TOKEN}")
 def process_webhook_text_pay_bot(update: dict):
     """
@@ -56,10 +55,6 @@ def process_webhook_text_pay_bot(update: dict):
         return
 
 
-class AuthStatus(Enum):
-    is_dean = 1
-    is_not_dean = 2
-    does_not_exist = 3
 
 
 def check_if_is_dean(user_id) -> AuthStatus:
@@ -207,7 +202,7 @@ bot.add_custom_filter(custom_filter=custom_filters.StateFilter(bot))
 bot.remove_webhook()
 
 # Set webhook
-bot.set_webhook(
-    url=BOT_URL_BASE + BOT_TOKEN
-)
-# bot.polling()
+# bot.set_webhook(
+#     url=BOT_URL_BASE + BOT_TOKEN
+# )
+bot.polling()

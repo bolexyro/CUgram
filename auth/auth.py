@@ -3,18 +3,18 @@
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
-import os
+import os, sys
 from dotenv import load_dotenv
 import google_auth_oauthlib
 import firebase_admin
 from firebase_admin import credentials, firestore_async
 import requests
 
-from pydantic import BaseModel
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
-class User(BaseModel):
-    picture: str | None = None
-    email: str
+from models.schemas import User
 
 load_dotenv()
 

@@ -1,19 +1,18 @@
-import os
+import os, sys
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
-from pydantic import BaseModel
 from fastapi import FastAPI
 import requests
 import io
 
-class Message(BaseModel):
-    text: str
-    attachment: str | None = None
-    content_type: str | None = None
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
+from models.schemas import Message
 
 load_dotenv()
 
@@ -90,17 +89,23 @@ def receive_message_handler(message: Message):
             bot.send_message(doc.id, text=message.text)
             if message.attachment and attachment_downloaded:
                 if message.content_type == 'audio':
-                    bot.send_audio(doc.id, audio=file_in_memory, caption='Attachment')
+                    bot.send_audio(doc.id, audio=file_in_memory,
+                                   caption='Attachment')
                 elif message.content_type == 'photo':
-                    bot.send_photo(doc.id, photo=file_in_memory, caption='Attachment')
+                    bot.send_photo(doc.id, photo=file_in_memory,
+                                   caption='Attachment')
                 elif message.content_type == 'voice':
-                    bot.send_voice(doc.id, voice=file_in_memory, caption='Attachment')
+                    bot.send_voice(doc.id, voice=file_in_memory,
+                                   caption='Attachment')
                 elif message.content_type == 'video':
-                    bot.send_video(doc.id, video=file_in_memory, caption='Attachment')
+                    bot.send_video(doc.id, video=file_in_memory,
+                                   caption='Attachment')
                 elif message.content_type == 'document':
-                    bot.send_document(doc.id, document=file_in_memory, caption='Attachment')
+                    bot.send_document(
+                        doc.id, document=file_in_memory, caption='Attachment')
             elif message.attachment and not attachment_downloaded:
-                bot.send_message(doc.id, text="An error occurred while trying to download the attachment")
+                bot.send_message(
+                    doc.id, text="An error occurred while trying to download the attachment")
         except:
             # this try and except block is to catch any errors that may arise if doc.id is not a good telegram user id
             pass
