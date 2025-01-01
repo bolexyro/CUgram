@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 class Message(BaseModel):
     text: str
-    attachment_url: str | None = None
+    attachment_file_id: str | None = None
     content_type: str | None = None
 
 
@@ -78,17 +78,17 @@ def receive_message_handler(message: Message):
         try:
             print(message)
             bot.send_message(doc.id, text=message.text)
-            if message.attachment_url:
+            if message.attachment_file_id:
                 if message.content_type == 'audio':
-                    bot.send_audio(doc.id, audio=message.attachment_url)
+                    bot.send_audio(doc.id, audio=message.attachment_file_id)
                 elif message.content_type == 'photo':
-                    bot.send_photo(doc.id, photo=message.attachment_url)
+                    bot.send_photo(doc.id, photo=message.attachment_file_id)
                 elif message.content_type == 'voice':
-                    bot.send_voice(doc.id, voice=message.attachment_url)
+                    bot.send_voice(doc.id, voice=message.attachment_file_id)
                 elif message.content_type == 'video':
-                    bot.send_video(doc.id, video=message.attachment_url)
+                    bot.send_video(doc.id, video=message.attachment_file_id)
                 elif message.content_type == 'document':
-                    bot.send_document(doc.id, document=message.attachment_url)
+                    bot.send_document(doc.id, document=message.attachment_file_id)
         except:
             pass
 
