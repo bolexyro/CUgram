@@ -13,7 +13,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from models.schemas import Message
+from models.schemas import Message, DownloadedAttachment
 
 
 BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
@@ -74,38 +74,46 @@ def on_auth_completed(user_id: str):
 @app.post(path='/message')
 def receive_message_handler(message: Message):
     docs = db_without_async.collection(USERS_COLLECTION).stream()
-    attachment_downloaded = False
+    attachments_downloaded = False
 
-    if message.attachment:
-        url = message.attachment
-        response = requests.get(url, stream=True)
+    downloaded_attachments: list[DownloadedAttachment] = []
+
+    if message.attachments:
         try:
-            if response.status_code == 200:
-                file_in_memory = io.BytesIO(response.content)
-                file_in_memory.name = os.path.basename(url)
-                attachment_downloaded = True
+            for attachment in message.attachments:
+                url = attachment.url
+                response = requests.get(url, stream=True)
+                if response.status_code == 200:
+                    file_in_memory = io.BytesIO(response.content)
+                    file_in_memory.name = os.path.basename(url)
+                    attachments_downloaded = True
+                    downloaded_attachments.append(DownloadedAttachment(file=file_in_memory, content_type=attachment.content_type))
+
         except Exception as e:
+            attachments_downloaded = False
             print(f"Exception {e}")
+
     for doc in docs:
         try:
             bot.send_message(doc.id, text=message.text)
-            if message.attachment and attachment_downloaded:
-                if message.content_type == 'audio':
-                    bot.send_audio(doc.id, audio=file_in_memory,
-                                   caption='Attachment')
-                elif message.content_type == 'photo':
-                    bot.send_photo(doc.id, photo=file_in_memory,
-                                   caption='Attachment')
-                elif message.content_type == 'voice':
-                    bot.send_voice(doc.id, voice=file_in_memory,
-                                   caption='Attachment')
-                elif message.content_type == 'video':
-                    bot.send_video(doc.id, video=file_in_memory,
-                                   caption='Attachment')
-                elif message.content_type == 'document':
-                    bot.send_document(
-                        doc.id, document=file_in_memory, caption='Attachment')
-            elif message.attachment and not attachment_downloaded:
+            if message.attachments and attachments_downloaded:
+                for attachment in downloaded_attachments:
+                    if attachment.content_type == 'audio':
+                        bot.send_audio(doc.id, audio=file_in_memory,
+                                    caption='Attachment')
+                    elif attachment.content_type == 'photo':
+                        bot.send_photo(doc.id, photo=file_in_memory,
+                                    caption='Attachment')
+                    elif attachment.content_type == 'voice':
+                        bot.send_voice(doc.id, voice=file_in_memory,
+                                    caption='Attachment')
+                    elif attachment.content_type == 'video':
+                        bot.send_video(doc.id, video=file_in_memory,
+                                    caption='Attachment')
+                    elif attachment.content_type == 'document':
+                        bot.send_document(
+                            doc.id, document=file_in_memory, caption='Attachment')
+            elif message.attachments and not attachments_downloaded:
                 bot.send_message(
                     doc.id, text="An error occurred while trying to download the attachment")
         except Exception as e:
