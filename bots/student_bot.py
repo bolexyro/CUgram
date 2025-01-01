@@ -7,6 +7,7 @@ from firebase_admin import credentials, firestore_async, firestore
 from fastapi import FastAPI
 import requests
 import io
+load_dotenv()
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -14,7 +15,6 @@ sys.path.append(parent_dir)
 
 from models.schemas import Message
 
-load_dotenv()
 
 BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
@@ -80,10 +80,10 @@ def receive_message_handler(message: Message):
     try:
         if response.status_code == 200:
             file_in_memory = io.BytesIO(response.content)
-            file_in_memory.name = os.path.basename()
+            file_in_memory.name = os.path.basename(url)
             attachment_downloaded = True
-    except:
-        pass
+    except Exception as e:
+        print(f"Exception {e}")
     for doc in docs:
         try:
             bot.send_message(doc.id, text=message.text)
@@ -106,9 +106,9 @@ def receive_message_handler(message: Message):
             elif message.attachment and not attachment_downloaded:
                 bot.send_message(
                     doc.id, text="An error occurred while trying to download the attachment")
-        except:
+        except Exception as e:
             # this try and except block is to catch any errors that may arise if doc.id is not a good telegram user id
-            pass
+            print(f"Exception {e}")
 
 
 bot.remove_webhook()
