@@ -10,6 +10,7 @@ import requests
 from pydantic import BaseModel
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
+from enum import Enum
 
 load_dotenv()
 
@@ -18,6 +19,7 @@ BOT_TOKEN = os.getenv('DSA_BOT_TOKEN')
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 USERS_COLLECTION = "users"
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
+DSA_EMAIL = os.getenv("DSA_EMAIL")
 
 app = FastAPI()
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -50,33 +52,59 @@ def process_webhook_text_pay_bot(update: dict):
         return
 
 
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
+class AuthStatus(Enum):
+    is_dean = 1
+    is_not_dean = 2
+    does_not_exist = 3
+
+
+def check_if_is_dean(user_id) -> AuthStatus:
     user_ref = db_without_async.collection(
-        USERS_COLLECTION).document(str(message.from_user.id))
+        USERS_COLLECTION).document(str(user_id))
     user = user_ref.get()
     if user.exists:
         user = user.to_dict()
         if (user.get("is_dean", False)):
-            bot.send_message(chat_id=message.from_user.id,
-                             text=f"You're already verified as the dean of student affairs CU {user['email']}. Feel free to continue using the bot Mrs Shola Coker.")
+            return AuthStatus.is_dean
         else:
-            bot.send_message(chat_id=message.from_user.id,
-                             text=f"We both know you ain't the dean of student affairs CU. You should not be using this bot smh.")
+            return AuthStatus.is_not_dean
+    else:
+        return AuthStatus.does_not_exist
 
-        return
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton(
-        "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}'))
-    bot.send_message(chat_id=message.from_user.id,
-                     text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    auth_status = check_if_is_dean(message.from_user.id)
+    if (auth_status == AuthStatus.is_dean):
+        bot.send_message(chat_id=message.from_user.id,
+                         text=f"You're already verified as the dean of student affairs CU {DSA_EMAIL}. Feel free to continue using the bot Mrs Shola Coker.")
+    elif auth_status == AuthStatus.is_not_dean:
+        bot.send_message(chat_id=message.from_user.id,
+                         text=f"We both know you ain't the dean of student affairs CU. You should not be using this bot smh.")
+    else:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(
+            "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}'))
+        bot.send_message(chat_id=message.from_user.id,
+                         text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
 @bot.message_handler(commands=["send_message"])
 def ask_for_message(message: TelegramMessage):
-    bot.send_message(chat_id=message.from_user.id,
-                     text='Please type in the messages you would like to send to the students.')
-    bot.set_state(message.from_user.id, UserState.message)
+    auth_status = check_if_is_dean(message.from_user.id)
+    if (auth_status == AuthStatus.is_dean):
+        bot.send_message(chat_id=message.from_user.id,
+                         text='Please type in the messages you would like to send to the students.')
+        bot.set_state(message.from_user.id, UserState.message)
+    elif auth_status == AuthStatus.is_not_dean:
+        bot.send_message(chat_id=message.from_user.id,
+                         text=f"We both know you ain't the dean of student affairs CU. You should not be using this bot smh.")
+    else:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(
+            "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}'))
+        bot.send_message(chat_id=message.from_user.id,
+                         text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
 @bot.message_handler(state=UserState.message)
