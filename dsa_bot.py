@@ -11,6 +11,7 @@ from pydantic import BaseModel
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
 from enum import Enum
+import io
 
 load_dotenv()
 
@@ -34,7 +35,7 @@ db_without_async = firestore.client()
 
 class Message(BaseModel):
     text: str
-    attachment_file_id: str | None = None
+    attachment: str | None = None
     content_type: str | None = None
 
 
@@ -153,9 +154,9 @@ def handle_attachments(message: TelegramMessage):
     elif message.content_type == 'document':
         file_id = message.document.file_id
 
-    # file_url = bot.get_file_url(file_id=file_id)
-    # print(file_url)
-    bot.add_data(message.from_user.id, attachment=file_id,
+    file_url = bot.get_file_url(file_id=file_id)
+    print(file_url)
+    bot.add_data(message.from_user.id, attachment=file_url,
                  content_type=message.content_type)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton(
@@ -176,7 +177,7 @@ def callback_query(call: CallbackQuery):
         bot.send_message(chat_id=chat_id,
                          text='Message is sending.....',)
         send_message_to_students(
-            Message(text=message, attachment_file_id=attachment, content_type=content_type), user_id)
+            Message(text=message, attachment=attachment, content_type=content_type), user_id)
         bot.delete_state(user_id, chat_id)
     else:
         bot.reply_to(
