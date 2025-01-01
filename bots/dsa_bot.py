@@ -202,7 +202,7 @@ bot.add_custom_filter(custom_filter=custom_filters.StateFilter(bot))
 bot.remove_webhook()
 
 # Set webhook
-# bot.set_webhook(
-#     url=BOT_URL_BASE + BOT_TOKEN
-# )
-bot.polling()
+bot.set_webhook(
+    url=BOT_URL_BASE + BOT_TOKEN
+)
+# bot.polling()
