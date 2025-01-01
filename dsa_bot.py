@@ -8,16 +8,26 @@ from telebot.handler_backends import State, StatesGroup  # states
 from fastapi import FastAPI
 import requests
 from pydantic import BaseModel
+import firebase_admin
+from firebase_admin import credentials, firestore_async, firestore
 
 load_dotenv()
 
 BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
 BOT_TOKEN = os.getenv('DSA_BOT_TOKEN')
+SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
+USERS_COLLECTION = "users"
+AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 
 app = FastAPI()
 bot = telebot.TeleBot(BOT_TOKEN)
 
 state_storage = StateMemoryStorage()  # you can init here another storage
+
+firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
+firebase_admin.initialize_app(firebase_cred)
+db_async = firestore_async.client()
+db_without_async = firestore.client()
 
 
 class Message(BaseModel):
@@ -42,8 +52,24 @@ def process_webhook_text_pay_bot(update: dict):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    user_ref = db_without_async.collection(
+        USERS_COLLECTION).document(str(message.from_user.id))
+    user = user_ref.get()
+    if user.exists:
+        user = user.to_dict()
+        if (user.get("is_dean", False)):
+            bot.send_message(chat_id=message.from_user.id,
+                             text=f"You're already verified as the dean of student affairs CU {user['email']}. Feel free to continue using the bot Mrs Shola Coker.")
+        else:
+            bot.send_message(chat_id=message.from_user.id,
+                             text=f"We both know you ain't the dean of student affairs CU. You should not be using this bot smh.")
+
+        return
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton(
+        "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}'))
     bot.send_message(chat_id=message.from_user.id,
-                     text="Welcome Mrs. Sola Coker")
+                     text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
 @bot.message_handler(commands=["send_message"])

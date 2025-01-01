@@ -26,6 +26,7 @@ OAUTH_CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 SCOPES = ["https://www.googleapis.com/auth/userinfo.email"]
 STUDENT_BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
+DSA_EMAIL = os.getenv("DSA_EMAIL")
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=FASTAPI_AUTH_SECRET_KEY)
@@ -80,8 +81,12 @@ async def oauth2callback(request: Request):
 
     data = {
         'email': user.email,
+        'is_dean': False
     }
 
+    if user.email == DSA_EMAIL:
+        data["is_dean"] = True
+    
     doc_ref = db.collection("users").document(user_id)
     await doc_ref.set(data)
 
