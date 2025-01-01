@@ -99,20 +99,20 @@ def receive_message_handler(message: Message):
             if message.attachments and attachments_downloaded:
                 for attachment in downloaded_attachments:
                     if attachment.content_type == 'audio':
-                        bot.send_audio(doc.id, audio=file_in_memory,
+                        bot.send_audio(doc.id, audio=attachment.file,
                                     caption='Attachment')
                     elif attachment.content_type == 'photo':
-                        bot.send_photo(doc.id, photo=file_in_memory,
+                        bot.send_photo(doc.id, photo=attachment.file,
                                     caption='Attachment')
                     elif attachment.content_type == 'voice':
-                        bot.send_voice(doc.id, voice=file_in_memory,
+                        bot.send_voice(doc.id, voice=attachment.file,
                                     caption='Attachment')
                     elif attachment.content_type == 'video':
-                        bot.send_video(doc.id, video=file_in_memory,
+                        bot.send_video(doc.id, video=attachment.file,
                                     caption='Attachment')
                     elif attachment.content_type == 'document':
                         bot.send_document(
-                            doc.id, document=file_in_memory, caption='Attachment')
+                            doc.id, document=attachment.file, caption='Attachment')
             elif message.attachments and not attachments_downloaded:
                 bot.send_message(
                     doc.id, text="An error occurred while trying to download the attachment")
