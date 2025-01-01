@@ -76,6 +76,7 @@ def receive_message_handler(message: Message):
     docs = db_without_async.collection(USERS_COLLECTION).stream()
     for doc in docs:
         try:
+            print(message)
             bot.send_message(doc.id, text=message.text)
             if message.attachment_url:
                 if message.content_type == 'audio':
