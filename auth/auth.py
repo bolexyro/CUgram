@@ -57,7 +57,6 @@ async def authorize(user_id: str, request: Request):
 
 @app.get(path='/oauth2callback')
 async def oauth2callback(request: Request):
-
     error = request.query_params.get("error")
     if error:
         raise HTTPException(

@@ -74,16 +74,18 @@ def on_auth_completed(user_id: str):
 @app.post(path='/message')
 def receive_message_handler(message: Message):
     docs = db_without_async.collection(USERS_COLLECTION).stream()
-    url = message.attachment
-    response = requests.get(url, stream=True)
     attachment_downloaded = False
-    try:
-        if response.status_code == 200:
-            file_in_memory = io.BytesIO(response.content)
-            file_in_memory.name = os.path.basename(url)
-            attachment_downloaded = True
-    except Exception as e:
-        print(f"Exception {e}")
+
+    if message.attachment:
+        url = message.attachment
+        response = requests.get(url, stream=True)
+        try:
+            if response.status_code == 200:
+                file_in_memory = io.BytesIO(response.content)
+                file_in_memory.name = os.path.basename(url)
+                attachment_downloaded = True
+        except Exception as e:
+            print(f"Exception {e}")
     for doc in docs:
         try:
             bot.send_message(doc.id, text=message.text)
