@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -14,7 +15,6 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from models.schemas import Message, DownloadedAttachment
-
 
 BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
@@ -87,7 +87,8 @@ def receive_message_handler(message: Message):
                     file_in_memory = io.BytesIO(response.content)
                     file_in_memory.name = os.path.basename(url)
                     attachments_downloaded = True
-                    downloaded_attachments.append(DownloadedAttachment(file=file_in_memory, content_type=attachment.content_type))
+                    downloaded_attachments.append(DownloadedAttachment(
+                        file=file_in_memory, content_type=attachment.content_type))
 
         except Exception as e:
             attachments_downloaded = False
@@ -99,20 +100,15 @@ def receive_message_handler(message: Message):
             if message.attachments and attachments_downloaded:
                 for attachment in downloaded_attachments:
                     if attachment.content_type == 'audio':
-                        bot.send_audio(doc.id, audio=attachment.file,
-                                    caption='Attachment')
+                        bot.send_audio(doc.id, audio=attachment.file)
                     elif attachment.content_type == 'photo':
-                        bot.send_photo(doc.id, photo=attachment.file,
-                                    caption='Attachment')
+                        bot.send_photo(doc.id, photo=attachment.file)
                     elif attachment.content_type == 'voice':
-                        bot.send_voice(doc.id, voice=attachment.file,
-                                    caption='Attachment')
+                        bot.send_voice(doc.id, voice=attachment.file)
                     elif attachment.content_type == 'video':
-                        bot.send_video(doc.id, video=attachment.file,
-                                    caption='Attachment')
+                        bot.send_video(doc.id, video=attachment.file)
                     elif attachment.content_type == 'document':
-                        bot.send_document(
-                            doc.id, document=attachment.file, caption='Attachment')
+                        bot.send_document(doc.id, document=attachment.file)
             elif message.attachments and not attachments_downloaded:
                 bot.send_message(
                     doc.id, text="An error occurred while trying to download the attachment")

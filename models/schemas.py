@@ -13,6 +13,7 @@ class Message(BaseModel):
 class Attachment(BaseModel):
     url: str
     content_type: str
+    file_id: str
 
 class DownloadedAttachment(BaseModel):
     model_config = {"arbitrary_types_allowed": True}

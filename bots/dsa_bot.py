@@ -19,9 +19,9 @@ parent_dir = os.path.dirname(current_dir)
 # Append the parent directory to sys.path
 sys.path.append(parent_dir)
 
-from models.schemas import Message, Attachment
-from models.states import UserState
 from models.enums import AuthStatus
+from models.states import UserState
+from models.schemas import Message, Attachment
 
 load_dotenv()
 
@@ -86,10 +86,16 @@ def send_welcome(message):
                          text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
-@bot.message_handler(commands=["send_message"])
-def ask_for_message(message: TelegramMessage):
-    auth_status = check_if_is_dean(message.from_user.id)
-    if (auth_status == AuthStatus.is_dean):
+@bot.message_handler(commands=["cancel"])
+def cancel_operation(message: TelegramMessage):
+    bot.delete_state(message.from_user.id, message.chat.id)
+    bot.send_message(chat_id=message.from_user.id, text="operation canceled")
+
+
+def send_message_and_restart_message_handler(message: TelegramMessage, is_authenticated=False):
+    auth_status = AuthStatus.is_dean if is_authenticated else check_if_is_dean(
+        message.from_user.id)
+    if auth_status == AuthStatus.is_dean:
         bot.send_message(chat_id=message.from_user.id,
                          text='Please type in the messages you would like to send to the students.')
         bot.set_state(message.from_user.id, UserState.message)
@@ -102,6 +108,11 @@ def ask_for_message(message: TelegramMessage):
             "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}'))
         bot.send_message(chat_id=message.from_user.id,
                          text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
+
+
+@bot.message_handler(commands=["send_message"])
+def ask_for_message(message: TelegramMessage):
+    send_message_and_restart_message_handler(message)
 
 
 # handle dean message to student input
@@ -125,20 +136,46 @@ def callback_query(call: CallbackQuery):
         bot.send_message(
             chat_id=user_id, text='Please send your attachments now. When you\'re done, type /done to confirm. 🚀')
     else:
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(InlineKeyboardButton(
-            "Yes ✅", callback_data="send_message_yes"), InlineKeyboardButton("No 🚫", callback_data="send_message_no"))
-        bot.send_message(chat_id=user_id,
-                         text='Confirm this is the message you want to send', reply_markup=markup)
+        show_confirmation_message(user_id)
+
+
+def show_confirmation_message(user_id):
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton(
+        "Yes ✅", callback_data="send_message_yes"), InlineKeyboardButton("No 🚫", callback_data="send_message_no"))
+    bot.send_message(chat_id=user_id,
+                     text='Confirm this is the message you want to send')
+    bot.send_message(chat_id=user_id, text="⬇️⬇️⬇️⬇️⬇️⬇️⬇️")
+    with bot.retrieve_data(user_id) as data:
+        message: str = data.get('message', 'Unknown')
+        attachments: list[Attachment] = data.get('attachments', [])
+
+    bot.send_message(chat_id=user_id,
+                     text=message, reply_markup=markup if len(attachments) == 0 else None)
+
+    for index, attachment in enumerate(attachments):
+        is_last_attachment = index == len(attachments) - 1
+
+        if attachment.content_type == 'audio':
+            bot.send_audio(user_id, audio=attachment.file_id,
+                           reply_markup=markup if is_last_attachment else None)
+        elif attachment.content_type == 'photo':
+            bot.send_photo(user_id, photo=attachment.file_id,
+                           reply_markup=markup if is_last_attachment else None)
+        elif attachment.content_type == 'voice':
+            bot.send_voice(user_id, voice=attachment.file_id,
+                           reply_markup=markup if is_last_attachment else None)
+        elif attachment.content_type == 'video':
+            bot.send_video(user_id, video=attachment.file_id,
+                           reply_markup=markup if is_last_attachment else None)
+        elif attachment.content_type == 'document':
+            bot.send_document(
+                user_id, document=attachment.file_id, reply_markup=markup if is_last_attachment else None)
 
 
 @bot.message_handler(commands=['done'], state=UserState.attachments)
 def handle_attachment_complete(message: TelegramMessage):
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(InlineKeyboardButton(
-        "Yes ✅", callback_data="send_message_yes"), InlineKeyboardButton("No 🚫", callback_data="send_message_no"))
-    bot.send_message(chat_id=message.from_user.id,
-                     text='Confirm this is the message you want to send', reply_markup=markup)
+    show_confirmation_message(user_id=message.from_user.id)
 
 
 # 'text', 'location', 'contact', 'sticker'
@@ -157,15 +194,14 @@ def handle_attachments(message: TelegramMessage):
         file_id = message.document.file_id
 
     file_url = bot.get_file_url(file_id=file_id)
-    print(file_url)
     user_id = message.from_user.id
     with bot.retrieve_data(user_id) as data:
         attachments: list = data.get('attachments', [])
 
-    attachments.append(Attachment(url=file_url, content_type=message.content_type))
+    attachments.append(Attachment(
+        url=file_url, content_type=message.content_type, file_id=file_id))
     bot.add_data(message.from_user.id, attachments=attachments)
-    
-    
+
 
 @bot.callback_query_handler(state=[UserState.attachments], func=lambda call: call.data.startswith("send_message"))
 def callback_query(call: CallbackQuery):
@@ -180,10 +216,18 @@ def callback_query(call: CallbackQuery):
         send_message_to_students(
             Message(text=message, attachments=attachments), user_id)
         bot.delete_state(user_id, chat_id)
+        with bot.retrieve_data(user_id) as data:
+            message = data.get('message', 'Unknown')
+            attachments = data.get('attachments', None)
     else:
-        bot.reply_to(
-            call.message, "Ok....")
-        bot.delete_state(user_id, chat_id)
+        bot.send_message(
+            user_id, "Ok.... click on /restart to restart or /cancel to cancel")
+        bot.set_state(user_id, UserState.cancel_or_restart)
+
+
+@bot.message_handler(commands=["restart"], state=[UserState.cancel_or_restart])
+def restart_handler(message: TelegramMessage):
+    send_message_and_restart_message_handler(message, is_authenticated=True)
 
 
 def send_message_to_students(message: Message, user_id):
@@ -192,7 +236,7 @@ def send_message_to_students(message: Message, user_id):
         "accept": "application/json",
         "Content-Type": "application/json"
     }
-    data = message.model_dump()
+    data = message.model_dump(exclude="file_id")
     print(data)
     response = requests.post(url, headers=headers, json=data)
     if (response.status_code == 200):
