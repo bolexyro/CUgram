@@ -189,9 +189,7 @@ def send_message_to_students(message: Message, user_id):
         "accept": "application/json",
         "Content-Type": "application/json"
     }
-    data = {
-        "text": message.text
-    }
+    data = message.model_dump()
     response = requests.post(url, headers=headers, json=data)
     if (response.status_code == 200):
         bot.send_message(chat_id=user_id,
