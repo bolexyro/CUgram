@@ -34,10 +34,13 @@ db_without_async = firestore.client()
 
 class Message(BaseModel):
     text: str
+    attachment_url: str | None = None
+    content_type: str | None = None
 
 
 class UserState(StatesGroup):
     message = State()
+    attachments = State()
 
 
 @app.post(path=f"/{BOT_TOKEN}")
@@ -107,9 +110,52 @@ def ask_for_message(message: TelegramMessage):
                          text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
+# handle dean message to student input
 @bot.message_handler(state=UserState.message)
 def handle_message(message: TelegramMessage):
     bot.add_data(message.from_user.id, message=message.text)
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(InlineKeyboardButton(
+        "Yes ✅", callback_data="attach_file_yes"), InlineKeyboardButton("No 🚫", callback_data="attach_file_no"))
+    bot.send_message(chat_id=message.from_user.id,
+                     text="Do you want to attach any file", reply_markup=markup)
+
+
+@bot.callback_query_handler(state=[UserState.message], func=lambda call: call.data.startswith("attach_file"))
+def callback_query(call: CallbackQuery):
+    user_id = call.from_user.id
+    chat_id = call.message.chat.id
+
+    bot.set_state(user_id, UserState.attachments)
+    if call.data == "attach_file_yes":
+        bot.send_message(chat_id=user_id,
+                         text='Ok send me the files')
+    else:
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(InlineKeyboardButton(
+            "Yes ✅", callback_data="send_message_yes"), InlineKeyboardButton("No 🚫", callback_data="send_message_no"))
+        bot.send_message(chat_id=user_id,
+                         text='Confirm this is the message you want to send', reply_markup=markup)
+
+
+# 'text', 'location', 'contact', 'sticker'
+@bot.message_handler(content_types=['audio', 'photo', 'voice', 'video', 'document'], state=UserState.attachments)
+def handle_attachments(message: TelegramMessage):
+    if message.content_type == 'audio':
+        file_id = message.audio.file_id
+    elif message.content_type == 'photo':
+        # Get the highest resolution photo according to chatgpt
+        file_id = message.photo[-1].file_id
+    elif message.content_type == 'voice':
+        file_id = message.voice.file_id
+    elif message.content_type == 'video':
+        file_id = message.video.file_id
+    elif message.content_type == 'document':
+        file_id = message.document.file_id
+
+    file_url = bot.get_file_url(file_id=file_id)
+    print(file_url)
+    bot.add_data(message.from_user.id, attachment=file_url, content_type=message.content_type)
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton(
         "Yes ✅", callback_data="send_message_yes"), InlineKeyboardButton("No 🚫", callback_data="send_message_no"))
@@ -117,16 +163,19 @@ def handle_message(message: TelegramMessage):
                      text='Confirm this is the message you want to send', reply_markup=markup)
 
 
-@bot.callback_query_handler(state=[UserState.message], func=lambda call: call.data.startswith("send_message"))
+@bot.callback_query_handler(state=[UserState.attachments], func=lambda call: call.data.startswith("send_message"))
 def callback_query(call: CallbackQuery):
     user_id = call.from_user.id
     chat_id = call.message.chat.id
     if call.data == "send_message_yes":
         with bot.retrieve_data(user_id) as data:
             message = data.get('message', 'Unknown')
+            attachment = data.get('attachment', None)
+            content_type = data.get('content_type', None)
         bot.send_message(chat_id=chat_id,
                          text='Message is sending.....',)
-        send_message_to_students(Message(text=message), user_id)
+        send_message_to_students(
+            Message(text=message, attachment_url=attachment, content_type=content_type), user_id)
         bot.delete_state(user_id, chat_id)
     else:
         bot.reply_to(
