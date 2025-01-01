@@ -7,8 +7,11 @@ from firebase_admin import credentials, firestore_async, firestore
 from pydantic import BaseModel
 from fastapi import FastAPI
 
+
 class Message(BaseModel):
     text: str
+    attachment_url: str | None = None
+    content_type: str | None = None
 
 
 load_dotenv()
@@ -74,6 +77,17 @@ def receive_message_handler(message: Message):
     for doc in docs:
         try:
             bot.send_message(doc.id, text=message.text)
+            if message.attachment_url:
+                if message.content_type == 'audio':
+                    bot.send_audio(doc.id, audio=message.attachment_url)
+                elif message.content_type == 'photo':
+                    bot.send_photo(doc.id, photo=message.attachment_url)
+                elif message.content_type == 'voice':
+                    bot.send_voice(doc.id, voice=message.attachment_url)
+                elif message.content_type == 'video':
+                    bot.send_video(doc.id, video=message.attachment_url)
+                elif message.content_type == 'document':
+                    bot.send_document(doc.id, document=message.attachment_url)
         except:
             pass
 
