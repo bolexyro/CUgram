@@ -1,3 +1,7 @@
+
+from models.schemas import Message, Attachment, User
+from models.states import UserState
+from models.enums import CloudCollections
 import os
 from dotenv import load_dotenv
 import telebot
@@ -8,29 +12,19 @@ from fastapi import FastAPI
 import requests
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
+# import sys
 
-import sys
-# Get the current script's directory
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# parent_dir = os.path.dirname(current_dir)
+# sys.path.append(parent_dir)
 
-# Get the parent directory
-parent_dir = os.path.dirname(current_dir)
-
-# Append the parent directory to sys.path
-sys.path.append(parent_dir)
-
-from models.enums import AuthStatus
-from models.states import UserState
-from models.schemas import Message, Attachment
 
 load_dotenv()
 
 BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
 BOT_TOKEN = os.getenv('DSA_BOT_TOKEN')
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
-USERS_COLLECTION = "users"
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
-DSA_EMAIL = os.getenv("DSA_EMAIL")
 
 app = FastAPI()
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -55,35 +49,17 @@ def process_webhook_text_pay_bot(update: dict):
         return
 
 
-def check_if_is_dean(user_id) -> AuthStatus:
-    user_ref = db_without_async.collection(
-        USERS_COLLECTION).document(str(user_id))
-    user = user_ref.get()
-    if user.exists:
-        user = user.to_dict()
-        if (user.get("is_dean", False)):
-            return AuthStatus.is_dean
-        else:
-            return AuthStatus.is_not_dean
-    else:
-        return AuthStatus.does_not_exist
+def is_an_official(user_id) -> User | None:
+    official_user_ref = db_without_async.collection(
+        CloudCollections.officials.value).document(str(user_id))
+    official_user_data = official_user_ref.get()
+    return User(**official_user_data.to_dict()) if official_user_data.exists else None
 
 
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    auth_status = check_if_is_dean(message.from_user.id)
-    if (auth_status == AuthStatus.is_dean):
-        bot.send_message(chat_id=message.from_user.id,
-                         text=f"You're already verified as the dean of student affairs CU {DSA_EMAIL}. Feel free to continue using the bot Mrs Shola Coker.")
-    elif auth_status == AuthStatus.is_not_dean:
-        bot.send_message(chat_id=message.from_user.id,
-                         text=f"We both know you ain't the dean of student affairs CU. You should not be using this bot smh.")
-    else:
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton(
-            "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}'))
-        bot.send_message(chat_id=message.from_user.id,
-                         text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
+@app.get('/auth-complete/{user_id}')
+def on_auth_completed(user_id: str):
+    bot.send_message(
+        user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages.✅')
 
 
 @bot.message_handler(commands=["cancel"])
@@ -92,22 +68,33 @@ def cancel_operation(message: TelegramMessage):
     bot.send_message(chat_id=message.from_user.id, text="operation canceled")
 
 
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    official_user = is_an_official(message.from_user.id)
+    if official_user:
+        bot.send_message(chat_id=message.from_user.id,
+                         text=f"You're already verified as {official_user.name} - {official_user.email}. Feel free to continue using the bot")
+    else:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(
+            "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}?is_official=true'))
+        bot.send_message(chat_id=message.from_user.id,
+                         text="Hello! To access this bot, you need to verify that you're hold an administrative position at Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
+
+
 def send_message_and_restart_message_handler(message: TelegramMessage, is_authenticated=False):
-    auth_status = AuthStatus.is_dean if is_authenticated else check_if_is_dean(
+    official_user = is_authenticated if is_authenticated else is_an_official(
         message.from_user.id)
-    if auth_status == AuthStatus.is_dean:
+    if official_user:
         bot.send_message(chat_id=message.from_user.id,
                          text='Please type in the messages you would like to send to the students.')
         bot.set_state(message.from_user.id, UserState.message)
-    elif auth_status == AuthStatus.is_not_dean:
-        bot.send_message(chat_id=message.from_user.id,
-                         text=f"We both know you ain't the dean of student affairs CU. You should not be using this bot smh.")
     else:
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(
             "Authorize me", url=f'{AUTH_URL_BASE}authorize/{message.from_user.id}'))
         bot.send_message(chat_id=message.from_user.id,
-                         text="Hello! To access this bot, you need to verify that you're the dean of student affairs Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
+                         text="Hello! To access this bot, you need to verify that you're hold an administrative position at Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
 @bot.message_handler(commands=["send_message"])
@@ -237,7 +224,6 @@ def send_message_to_students(message: Message, user_id):
         "Content-Type": "application/json"
     }
     data = message.model_dump(exclude="file_id")
-    print(data)
     response = requests.post(url, headers=headers, json=data)
     if (response.status_code == 200):
         bot.send_message(chat_id=user_id,

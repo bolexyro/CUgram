@@ -1,10 +1,12 @@
 from pydantic import BaseModel, ConfigDict
 import io
 
+
 class User(BaseModel):
-    picture: str | None = None
     email: str
-    
+    name: str
+
+
 class Message(BaseModel):
     text: str
     attachments: list["Attachment"] | None = None
@@ -14,6 +16,7 @@ class Attachment(BaseModel):
     url: str
     content_type: str
     file_id: str
+
 
 class DownloadedAttachment(BaseModel):
     model_config = {"arbitrary_types_allowed": True}

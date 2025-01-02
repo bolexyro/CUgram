@@ -1,9 +1,5 @@
 from enum import Enum
 
-class AuthStatus(Enum):
-    is_dean = 1
-    is_not_dean = 2
-    does_not_exist = 3
 
 class ContentType(Enum):
     audio = "audio"
@@ -11,3 +7,8 @@ class ContentType(Enum):
     voice = "voice"
     video = "video"
     document = "document"
+
+
+class CloudCollections(Enum):
+    students = "students"
+    officials = "officials"

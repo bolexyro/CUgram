@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Failed</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Access Denied</h1>
+        <p>
+            {% if is_official %}
+            You did not use an official email to authenticate. Please try again with a valid covenant university
+            official email.
+            {% else %}
+            You did not use your student email to authenticate. Please try again with a valid student email.
+            {% endif %}
+        </p>
+        <button onclick="window.location.href='/authorize/{{user_id}}';">Try Again</button>
+    </div>
+</body>
+
+</html>

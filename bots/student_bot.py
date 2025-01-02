@@ -1,5 +1,6 @@
+from models.schemas import Message, DownloadedAttachment
+from models.enums import CloudCollections
 import os
-import sys
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -10,17 +11,11 @@ import requests
 import io
 load_dotenv()
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-
-from models.schemas import Message, DownloadedAttachment
 
 BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
-USERS_COLLECTION = "users"
 
 app = FastAPI()
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -53,13 +48,13 @@ def process_webhook_text_pay_bot(update: dict):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_ref = db_without_async.collection(
-        USERS_COLLECTION).document(str(message.from_user.id))
-    user = user_ref.get()
-    if user.exists:
-        user = user.to_dict()
+    student_ref = db_without_async.collection(
+        CloudCollections.students.value).document(str(message.from_user.id))
+    student = student_ref.get()
+    if student.exists:
+        student = student.to_dict()
         bot.send_message(chat_id=message.from_user.id,
-                         text=f"You're already verified with your Covenant University email  {user['email']}. Feel free to continue using the bot.")
+                         text=f"You're already verified with your Covenant University email  {student['email']}. Feel free to continue using the bot.")
         return
     bot.send_message(chat_id=message.from_user.id,
                      text="Hello! To access this bot, you need to verify that you have a valid Covenant University email. Please sign in with your Google account using the button below.", reply_markup=gen_markup(message.from_user.id))
@@ -73,7 +68,8 @@ def on_auth_completed(user_id: str):
 
 @app.post(path='/message')
 def receive_message_handler(message: Message):
-    docs = db_without_async.collection(USERS_COLLECTION).stream()
+    docs = db_without_async.collection(
+        CloudCollections.students.value).stream()
     attachments_downloaded = False
 
     downloaded_attachments: list[DownloadedAttachment] = []
