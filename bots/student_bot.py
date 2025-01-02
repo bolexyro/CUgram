@@ -92,6 +92,7 @@ def receive_message_handler(message: Message):
 
     for doc in docs:
         try:
+            bot.send_message(doc.id, text=f"✉️ {message.user.name} <{message.user.email}>")
             bot.send_message(doc.id, text=message.text)
             if message.attachments and attachments_downloaded:
                 for attachment in downloaded_attachments:

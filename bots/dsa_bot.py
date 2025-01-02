@@ -1,7 +1,3 @@
-
-from models.schemas import Message, Attachment, User
-from models.states import UserState
-from models.enums import CloudCollections
 import os
 from dotenv import load_dotenv
 import telebot
@@ -12,13 +8,15 @@ from fastapi import FastAPI
 import requests
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
-# import sys
+import sys
 
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-# parent_dir = os.path.dirname(current_dir)
-# sys.path.append(parent_dir)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
-
+from models.schemas import Message, Attachment, User
+from models.states import UserState
+from models.enums import CloudCollections
 load_dotenv()
 
 BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
@@ -82,13 +80,15 @@ def send_welcome(message):
                          text="Hello! To access this bot, you need to verify that you're hold an administrative position at Covenant University. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
-def send_message_and_restart_message_handler(message: TelegramMessage, is_authenticated=False):
-    official_user = is_authenticated if is_authenticated else is_an_official(
+# so if user is included here, it means that the sender has been authenticated, so no need to check for authentication again
+def send_message_and_restart_message_handler(message: TelegramMessage, user: User = None):
+    official_user = user if user else is_an_official(
         message.from_user.id)
     if official_user:
         bot.send_message(chat_id=message.from_user.id,
                          text='Please type in the messages you would like to send to the students.')
         bot.set_state(message.from_user.id, UserState.message)
+        bot.add_data(message.from_user.id, user=official_user)
     else:
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(
@@ -130,13 +130,15 @@ def show_confirmation_message(user_id):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(InlineKeyboardButton(
         "Yes ✅", callback_data="send_message_yes"), InlineKeyboardButton("No 🚫", callback_data="send_message_no"))
+    with bot.retrieve_data(user_id) as data:
+        message: str = data.get('message', 'Unknown')
+        user: User = data.get("user", User(email="unknown@gmail.com", name="Unknown"))
+        attachments: list[Attachment] = data.get('attachments', [])
+
     bot.send_message(chat_id=user_id,
                      text='Confirm this is the message you want to send')
     bot.send_message(chat_id=user_id, text="⬇️⬇️⬇️⬇️⬇️⬇️⬇️")
-    with bot.retrieve_data(user_id) as data:
-        message: str = data.get('message', 'Unknown')
-        attachments: list[Attachment] = data.get('attachments', [])
-
+    bot.send_message(user_id, text=f"✉️ {user.name} <{user.email}>")
     bot.send_message(chat_id=user_id,
                      text=message, reply_markup=markup if len(attachments) == 0 else None)
 
@@ -196,12 +198,13 @@ def callback_query(call: CallbackQuery):
     chat_id = call.message.chat.id
     if call.data == "send_message_yes":
         with bot.retrieve_data(user_id) as data:
+            official_user = data.get("user", User(email="unknown@gmail.com", name="Unknown"))
             message = data.get('message', 'Unknown')
             attachments = data.get('attachments', None)
         bot.send_message(chat_id=chat_id,
                          text='Message is sending.....',)
         send_message_to_students(
-            Message(text=message, attachments=attachments), user_id)
+            Message(text=message, attachments=attachments, user=official_user), user_id)
         bot.delete_state(user_id, chat_id)
         with bot.retrieve_data(user_id) as data:
             message = data.get('message', 'Unknown')
@@ -223,7 +226,7 @@ def send_message_to_students(message: Message, user_id):
         "accept": "application/json",
         "Content-Type": "application/json"
     }
-    data = message.model_dump(exclude="file_id")
+    data = message.model_dump()
     response = requests.post(url, headers=headers, json=data)
     if (response.status_code == 200):
         bot.send_message(chat_id=user_id,
