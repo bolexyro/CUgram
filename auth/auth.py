@@ -27,6 +27,8 @@ SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
           "https://www.googleapis.com/auth/userinfo.profile"]
 STUDENT_BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 DSA_BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
+DSA_BOT_SERVER_SECRET_TOKEN = os.getenv("DSA_BOT_SERVER_SECRET_TOKEN")
+STUDENT_BOT_SERVER_SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
 
 OFFICIAL_EMAILS = ["odufuwa.adebola@stu.cu.edu.ng",
                    "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng"]
@@ -105,7 +107,8 @@ async def oauth2callback(request: Request):
     url = DSA_BOT_URL_BASE if is_official else STUDENT_BOT_URL_BASE + \
         f'auth-complete/{user_id}'
     # this request is so that the bot sends the user a confirmation message
-    requests.get(url=url)
+    requests.get(url=url, headers={
+                 "Authorization": f"Bearer {DSA_BOT_SERVER_SECRET_TOKEN if is_official else STUDENT_BOT_SERVER_SECRET_TOKEN}"})
     return RedirectResponse("https://t.me/DSACU_bot" if is_official else "https://t.me/CUgram_bot", status_code=status.HTTP_303_SEE_OTHER)
 
 

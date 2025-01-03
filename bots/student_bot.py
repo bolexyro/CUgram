@@ -6,16 +6,19 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
-from fastapi import FastAPI
+from fastapi import FastAPI, status, HTTPException, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import requests
 import io
-load_dotenv()
+from typing import Annotated
 
+load_dotenv()
 
 BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
+SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
 
 app = FastAPI()
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -24,6 +27,16 @@ firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
 db_async = firestore_async.client()
 db_without_async = firestore.client()
+
+security = HTTPBearer()
+
+
+def verify_token(credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
+    if credentials.credentials != SECRET_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing token",
+        )
 
 
 def gen_markup(user_id: str):
@@ -60,13 +73,13 @@ def send_welcome(message):
                      text="Hello! To access this bot, you need to verify that you have a valid Covenant University email. Please sign in with your Google account using the button below.", reply_markup=gen_markup(message.from_user.id))
 
 
-@app.get('/auth-complete/{user_id}')
+@app.get('/auth-complete/{user_id}', dependencies=[Depends(verify_token)])
 def on_auth_completed(user_id: str):
     bot.send_message(
         user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages.✅')
 
 
-@app.post(path='/message')
+@app.post(path='/message', dependencies=[Depends(verify_token)])
 def receive_message_handler(message: Message):
     docs = db_without_async.collection(
         CloudCollections.students.value).stream()
@@ -80,7 +93,9 @@ def receive_message_handler(message: Message):
                 url = attachment.url
                 response = requests.get(url, stream=True)
                 if response.status_code == 200:
-                    file_in_memory = io.BytesIO(response.content)
+                    file_in_memory = io.BytesIO()
+                    for chunk in response.iter_content(chunk_size=8192):  # Read in chunks
+                        file_in_memory.write(chunk)
                     file_in_memory.name = os.path.basename(url)
                     attachments_downloaded = True
                     downloaded_attachments.append(DownloadedAttachment(

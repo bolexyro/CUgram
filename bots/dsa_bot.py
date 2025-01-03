@@ -1,38 +1,51 @@
+from models.enums import CloudCollections
+from models.states import UserState
+from models.schemas import Message, Attachment, User
 import os
 from dotenv import load_dotenv
 import telebot
 from telebot import custom_filters
 from telebot.types import Message as TelegramMessage, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from telebot.storage import StateMemoryStorage
-from fastapi import FastAPI
+from fastapi import FastAPI, status, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import requests
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
 import sys
+from typing import Annotated
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# parent_dir = os.path.dirname(current_dir)
+# sys.path.append(parent_dir)
 
-from models.schemas import Message, Attachment, User
-from models.states import UserState
-from models.enums import CloudCollections
 load_dotenv()
 
 BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
 BOT_TOKEN = os.getenv('DSA_BOT_TOKEN')
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
+SECRET_TOKEN = os.getenv("DSA_BOT_SERVER_SECRET_TOKEN")
+STUDENT_BOT_SERVER_SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
 
 app = FastAPI()
 bot = telebot.TeleBot(BOT_TOKEN)
 
-state_storage = StateMemoryStorage()  # you can init here another storage
+# state_storage = StateMemoryStorage()
 
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
 db_async = firestore_async.client()
 db_without_async = firestore.client()
+
+security = HTTPBearer()
+
+
+def verify_token(credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
+    if credentials.credentials != SECRET_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing token",
+        )
 
 
 @app.post(path=f"/{BOT_TOKEN}")
@@ -54,7 +67,7 @@ def is_an_official(user_id) -> User | None:
     return User(**official_user_data.to_dict()) if official_user_data.exists else None
 
 
-@app.get('/auth-complete/{user_id}')
+@app.get('/auth-complete/{user_id}', dependencies=[Depends(verify_token)])
 def on_auth_completed(user_id: str):
     bot.send_message(
         user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages.✅')
@@ -132,7 +145,8 @@ def show_confirmation_message(user_id):
         "Yes ✅", callback_data="send_message_yes"), InlineKeyboardButton("No 🚫", callback_data="send_message_no"))
     with bot.retrieve_data(user_id) as data:
         message: str = data.get('message', 'Unknown')
-        user: User = data.get("user", User(email="unknown@gmail.com", name="Unknown"))
+        user: User = data.get("user", User(
+            email="unknown@gmail.com", name="Unknown"))
         attachments: list[Attachment] = data.get('attachments', [])
 
     bot.send_message(chat_id=user_id,
@@ -198,7 +212,8 @@ def callback_query(call: CallbackQuery):
     chat_id = call.message.chat.id
     if call.data == "send_message_yes":
         with bot.retrieve_data(user_id) as data:
-            official_user = data.get("user", User(email="unknown@gmail.com", name="Unknown"))
+            official_user = data.get("user", User(
+                email="unknown@gmail.com", name="Unknown"))
             message = data.get('message', 'Unknown')
             attachments = data.get('attachments', None)
         bot.send_message(chat_id=chat_id,
@@ -224,8 +239,10 @@ def send_message_to_students(message: Message, user_id):
     url = "https://cugram.onrender.com/message"
     headers = {
         "accept": "application/json",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {STUDENT_BOT_SERVER_SECRET_TOKEN}"
     }
+
     data = message.model_dump()
     response = requests.post(url, headers=headers, json=data)
     if (response.status_code == 200):
