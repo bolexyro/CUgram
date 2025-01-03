@@ -98,12 +98,13 @@ async def receive_message_handler(message: Message):
                             async for chunk in response.content.iter_any():
                                 file_in_memory.write(chunk)
                             file_in_memory.name = os.path.basename(url)
+                            file_in_memory.seek(0)
                             attachments_downloaded = True
                             downloaded_attachments.append(DownloadedAttachment(
                                 file=file_in_memory, content_type=attachment.content_type))
         except Exception as e:
             attachments_downloaded = False
-            print(f"Exception {e}")
+            print(f"Exception => {e}")
 
     for doc in docs:
         try:
@@ -127,7 +128,7 @@ async def receive_message_handler(message: Message):
                     doc.id, text="An error occurred while trying to download the attachment")
         except Exception as e:
             # this try and except block is to catch any errors that may arise if doc.id is not a good telegram user id
-            print(f"Exception {e}")
+            print(f"Exception => {e}")
 
 
 bot.remove_webhook()
