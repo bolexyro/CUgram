@@ -8,10 +8,9 @@ from telebot import custom_filters
 from telebot.types import Message as TelegramMessage, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from fastapi import FastAPI, status, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import requests
 import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
-import sys
+import aiohttp
 from typing import Annotated
 
 # current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -235,7 +234,7 @@ def restart_handler(message: TelegramMessage):
     send_message_and_restart_message_handler(message, is_authenticated=True)
 
 
-def send_message_to_students(message: Message, user_id):
+async def send_message_to_students(message: Message, user_id):
     url = "https://cugram.onrender.com/message"
     headers = {
         "accept": "application/json",
@@ -243,14 +242,15 @@ def send_message_to_students(message: Message, user_id):
         "Authorization": f"Bearer {STUDENT_BOT_SERVER_SECRET_TOKEN}"
     }
 
-    data = message.model_dump()
-    response = requests.post(url, headers=headers, json=data)
-    if (response.status_code == 200):
-        bot.send_message(chat_id=user_id,
-                         text='Message sent successfully')
-    else:
-        bot.send_message(chat_id=user_id,
-                         text='Message was unable to be sent')
+    payload = message.model_dump()
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.post(url=url, json=payload) as response:
+            if response.status == 200:
+                bot.send_message(chat_id=user_id,
+                                 text='Message sent successfully')
+            else:
+                bot.send_message(chat_id=user_id,
+                                 text='Message was unable to be sent')
 
 
 bot.add_custom_filter(custom_filter=custom_filters.StateFilter(bot))

@@ -8,7 +8,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore_async, firestore
 from fastapi import FastAPI, status, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import requests
+import aiohttp
 import io
 from typing import Annotated
 
@@ -80,7 +80,7 @@ def on_auth_completed(user_id: str):
 
 
 @app.post(path='/message', dependencies=[Depends(verify_token)])
-def receive_message_handler(message: Message):
+async def receive_message_handler(message: Message):
     docs = db_without_async.collection(
         CloudCollections.students.value).stream()
     attachments_downloaded = False
@@ -91,23 +91,24 @@ def receive_message_handler(message: Message):
         try:
             for attachment in message.attachments:
                 url = attachment.url
-                response = requests.get(url, stream=True)
-                if response.status_code == 200:
-                    file_in_memory = io.BytesIO()
-                    for chunk in response.iter_content(chunk_size=8192):  # Read in chunks
-                        file_in_memory.write(chunk)
-                    file_in_memory.name = os.path.basename(url)
-                    attachments_downloaded = True
-                    downloaded_attachments.append(DownloadedAttachment(
-                        file=file_in_memory, content_type=attachment.content_type))
-
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url=url) as response:
+                        if response.status == 200:
+                            file_in_memory = io.BytesIO()
+                            async for chunk in response.content.iter_any():
+                                file_in_memory.write(chunk)
+                            file_in_memory.name = os.path.basename(url)
+                            attachments_downloaded = True
+                            downloaded_attachments.append(DownloadedAttachment(
+                                file=file_in_memory, content_type=attachment.content_type))
         except Exception as e:
             attachments_downloaded = False
             print(f"Exception {e}")
 
     for doc in docs:
         try:
-            bot.send_message(doc.id, text=f"✉️ {message.user.name} <{message.user.email}>")
+            bot.send_message(
+                doc.id, text=f"✉️ {message.user.name} <{message.user.email}>")
             bot.send_message(doc.id, text=message.text)
             if message.attachments and attachments_downloaded:
                 for attachment in downloaded_attachments:
