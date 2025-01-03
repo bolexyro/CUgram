@@ -104,11 +104,11 @@ async def oauth2callback(request: Request):
         CloudCollections.officials.value if is_official else CloudCollections.students.value).document(user_id)
     await doc_ref.set(data)
 
-    url = DSA_BOT_URL_BASE if is_official else STUDENT_BOT_URL_BASE + \
+    url = (DSA_BOT_URL_BASE if is_official else STUDENT_BOT_URL_BASE) + \
         f'auth-complete/{user_id}'
     # this request is so that the bot sends the user a confirmation message
     requests.get(url=url, headers={
-                 "Authorization": f"Bearer {DSA_BOT_SERVER_SECRET_TOKEN if is_official else STUDENT_BOT_SERVER_SECRET_TOKEN}"})
+        "Authorization": f"Bearer {DSA_BOT_SERVER_SECRET_TOKEN if is_official else STUDENT_BOT_SERVER_SECRET_TOKEN}"})
     return RedirectResponse("https://t.me/DSACU_bot" if is_official else "https://t.me/CUgram_bot", status_code=status.HTTP_303_SEE_OTHER)
 
 
