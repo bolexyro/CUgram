@@ -117,7 +117,7 @@ async def receive_message_handler(message: Message):
             attachments_downloaded = False
             print(f"Exception => {e}")
 
-    for doc in docs:
+    async for doc in docs:
         try:
             await bot.send_message(
                 doc.id, text=f"✉️ {message.user.name} <{message.user.email}> \n\n {message.text}")
