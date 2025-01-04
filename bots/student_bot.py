@@ -24,7 +24,7 @@ SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
 
 
 @asynccontextmanager
-async def lifespan(app=FastAPI):
+async def lifespan(app: FastAPI):
     await bot.remove_webhook()
     # Set webhook
     await bot.set_webhook(
