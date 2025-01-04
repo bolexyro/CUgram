@@ -1,4 +1,4 @@
-from telebot.handler_backends import State, StatesGroup  # states
+from telebot.states import State, StatesGroup  # states
 
 class UserState(StatesGroup):
     message = State()
