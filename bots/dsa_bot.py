@@ -1,22 +1,22 @@
 from models.enums import CloudCollections
 from models.states import UserState
 from models.schemas import Message, Attachment, User
+from typing import Annotated
 import os
 from dotenv import load_dotenv
+import aiohttp
 import telebot
 from telebot import async_telebot, asyncio_filters
 from telebot.asyncio_storage import StateMemoryStorage
 from telebot.types import Message as TelegramMessage, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from fastapi import FastAPI, status, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import firebase_admin
-from firebase_admin import credentials, firestore_async
-import aiohttp
-from typing import Annotated
-from telebot.states.asyncio.context import StateContext
 # necessary for state parameter in handlers.
 from telebot.states.asyncio.middleware import StateMiddleware
+from telebot.states.asyncio.context import StateContext
+from fastapi import FastAPI, status, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
+import firebase_admin
+from firebase_admin import credentials, firestore_async
 
 # current_dir = os.path.dirname(os.path.abspath(__file__))
 # parent_dir = os.path.dirname(current_dir)
@@ -269,6 +269,8 @@ async def send_message_to_students(message: Message, user_id):
 bot.add_custom_filter(asyncio_filters.StateFilter(bot))
 
 bot.setup_middleware(StateMiddleware(bot))
+
+# uncomment this for polling
 
 # import asyncio
 # async def main():
