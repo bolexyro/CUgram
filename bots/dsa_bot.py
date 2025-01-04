@@ -258,6 +258,7 @@ async def send_message_to_students(message: Message, user_id):
     payload = message.model_dump()
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(url=url, json=payload) as response:
+            print(f"status code is {response.status}")
             if response.status == 200:
                 await bot.send_message(chat_id=user_id,
                                        text='Message sent successfully')
