@@ -10,10 +10,9 @@ from dotenv import load_dotenv
 import google_auth_oauthlib
 import firebase_admin
 from firebase_admin import credentials, firestore_async
-import requests
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import aiohttp
 
 load_dotenv()
 
@@ -86,8 +85,7 @@ async def oauth2callback(request: Request):
     flow.fetch_token(authorization_response=authorization_response)
 
     credentials = flow.credentials
-    user = get_user_info(credentials.token)
-
+    user = await get_user_info(credentials.token)
     is_official = request.session.get("is_official", False)
 
     request.session.clear()
@@ -106,20 +104,26 @@ async def oauth2callback(request: Request):
 
     url = (DSA_BOT_URL_BASE if is_official else STUDENT_BOT_URL_BASE) + \
         f'auth-complete/{user_id}'
+    headers = {
+        "Authorization": f"Bearer {DSA_BOT_SERVER_SECRET_TOKEN if is_official else STUDENT_BOT_SERVER_SECRET_TOKEN}"}
     # this request is so that the bot sends the user a confirmation message
-    requests.get(url=url, headers={
-        "Authorization": f"Bearer {DSA_BOT_SERVER_SECRET_TOKEN if is_official else STUDENT_BOT_SERVER_SECRET_TOKEN}"})
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(url=url) as response:
+            pass
     return RedirectResponse("https://t.me/DSACU_bot" if is_official else "https://t.me/CUgram_bot", status_code=status.HTTP_303_SEE_OTHER)
 
 
-def get_user_info(access_token: str) -> User:
-    response = requests.get("https://www.googleapis.com/oauth2/v3/userinfo", headers={
+async def get_user_info(access_token: str) -> User:
+    url = "https://www.googleapis.com/oauth2/v3/userinfo"
+    headers = {
         "Authorization": f"Bearer {access_token}"
-    })
-    if response.status_code == 200:
-        user_info = response.json()
-        return User(**user_info)
-    else:
-        print(
-            f"Failed to fetch user info: {response.status_code} {response.text}")
-        return None
+    }
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(url=url) as response:
+            if response.status == 200:
+                user_info = await response.json()
+                return User(**user_info)
+            else:
+                print(
+                    f"Failed to fetch user info: {response.status_code} {response.text}")
+                return None

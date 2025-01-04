@@ -1,12 +1,7 @@
 fastapi[standard]==0.115.5
-google-api-core==2.23.0
-google-api-python-client==2.154.0
-google-auth==2.36.0
-google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.1
-google-cloud-pubsub==2.27.1
 pyTelegramBotAPI==4.24.0
 python-dotenv==1.0.1
 itsdangerous==2.2.0
 firebase-admin==6.6.0
-requests==2.32.3
+aiohttp[speedups]==3.11.11
