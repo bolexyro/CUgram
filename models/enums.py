@@ -12,3 +12,4 @@ class ContentType(Enum):
 class CloudCollections(Enum):
     students = "students"
     officials = "officials"
+    messages = "messages"

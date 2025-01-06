@@ -18,6 +18,9 @@ from contextlib import asynccontextmanager
 import firebase_admin
 from firebase_admin import credentials, firestore_async
 
+import random
+import string
+from datetime import datetime
 # current_dir = os.path.dirname(os.path.abspath(__file__))
 # parent_dir = os.path.dirname(current_dir)
 # sys.path.append(parent_dir)
@@ -191,27 +194,36 @@ async def handle_attachment_complete(message: TelegramMessage, state: StateConte
     await show_confirmation_message(user_id=message.from_user.id, state=state)
 
 
+def generate_random_filename():
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    return f"{timestamp}_{random_string}"
+
 # 'text', 'location', 'contact', 'sticker'
 @bot.message_handler(content_types=['audio', 'photo', 'voice', 'video', 'document'], state=UserState.attachments)
 async def handle_attachments(message: TelegramMessage, state: StateContext):
     if message.content_type == 'audio':
         file_id = message.audio.file_id
+        file_name = message.audio.file_name
     elif message.content_type == 'photo':
         # Get the highest resolution photo according to chatgpt
         file_id = message.photo[-1].file_id
+        file_name = generate_random_filename()
     elif message.content_type == 'voice':
         file_id = message.voice.file_id
+        file_name = generate_random_filename() 
     elif message.content_type == 'video':
         file_id = message.video.file_id
+        file_name = message.video.file_name
     elif message.content_type == 'document':
         file_id = message.document.file_id
-
+        file_name = message.document.file_name
     file_url = await bot.get_file_url(file_id=file_id)
     async with state.data() as data:
         attachments: list = data.get('attachments', [])
 
     attachments.append(Attachment(
-        url=file_url, content_type=message.content_type, file_id=file_id))
+        url=file_url, content_type=message.content_type, file_id=file_id, file_name=file_name))
     await state.add_data(attachments=attachments)
 
 
@@ -256,6 +268,7 @@ async def send_message_to_students(message: Message, user_id):
     }
 
     payload = message.model_dump()
+    
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(url=url, json=payload) as response:
             print(f"status code is {response.status}")

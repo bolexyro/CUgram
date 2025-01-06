@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, model_serializer
 import io
 
 
@@ -16,7 +16,12 @@ class Message(BaseModel):
 class Attachment(BaseModel):
     url: str
     content_type: str
-    file_id: str
+    file_id: str | None = None
+    file_name: str
+    
+    @model_serializer
+    def ser_model(self) :
+        return {"url": self.url, "content_type": self.content_type, "file_name": self.file_name}
 
 class DownloadedAttachment(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
