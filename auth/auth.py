@@ -68,6 +68,7 @@ async def authorize(*, user_id: str, is_official: bool = False, request: Request
 async def oauth2callback(request: Request):
     error = request.query_params.get("error")
     if error:
+        # TODO redirect them to an error page
         raise HTTPException(
             status_code=400, detail=f"OAuth 2.0 Error: {error}")
 
@@ -96,7 +97,7 @@ async def oauth2callback(request: Request):
             "is_official": is_official
         })
     
-    if not is_official and user.email.endswith("@stu.cu.edu.ng") == -1:
+    if not is_official and user.email.endswith("@stu.cu.edu.ng") == False:
         return templates.TemplateResponse(name="not_student.html", request=request, context={
             "user_id": user_id,
             "is_official": is_official
