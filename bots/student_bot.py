@@ -141,7 +141,7 @@ async def receive_message_handler(message: Message):
                         markup.add(InlineKeyboardButton(
                             f"📄 {attachment.file_name}", callback_data=f"download:{new_message_id}:{index}"))
             await bot.send_message(
-                doc.id, text=f"✉️ {message.user.name} <{message.user.email}> \n\n {message.text}", reply_markup=markup)
+                doc.id, text=f"✉️ {message.user.name} <{message.user.email}> \n\n {message.text}", reply_markup= markup if message.attachments else None)
         except Exception as e:
             # this try and except block is to catch any errors that may arise if doc.id is not a good telegram user id
             print(f"Exception => {e}")
