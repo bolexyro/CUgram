@@ -90,7 +90,7 @@ async def oauth2callback(request: Request):
 
     request.session.clear()
 
-    if user.email not in OFFICIAL_EMAILS or user.email.endswith("@stu.cu.edu.ng") == -1:
+    if user.email not in OFFICIAL_EMAILS or user.email.endswith("@stu.cu.edu.ng") == False:
         return templates.TemplateResponse(name="not_student.html", request=request, context={
             "user_id": user_id,
             "is_official": is_official
