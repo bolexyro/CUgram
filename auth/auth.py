@@ -13,11 +13,8 @@ from firebase_admin import credentials, firestore_async
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import aiohttp
-
-from urllib.parse import parse_qs
-import hmac
-import hashlib
-import json
+from auth.utils import get_user_info, validate_init_data_signature, generate_jwt
+from datetime import timedelta
 
 load_dotenv()
 
@@ -36,6 +33,10 @@ STUDENT_BOT_SERVER_SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
 DSA_BOT_TOKEN = os.getenv("DSA_BOT_TOKEN")
 OFFICIAL_EMAILS = ["odufuwa.adebola@stu.cu.edu.ng",
                    "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng"]
+
+JWT_SIGNING_SECRET_KEY = os.getenv("JWT_SIGNING_SECRET_KEY")
+ACCESS_TOKEN_EXPIRATION_DELTA = timedelta(hours=2)
+REFRESH_TOKEN_EXPIRATION_DELTA = timedelta(weeks=1)
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=FASTAPI_AUTH_SECRET_KEY)
@@ -125,25 +126,9 @@ async def oauth2callback(request: Request):
     return RedirectResponse("https://t.me/DSACU_bot" if is_official else "https://t.me/CUgram_bot", status_code=status.HTTP_303_SEE_OTHER)
 
 
-async def get_user_info(access_token: str) -> User:
-    url = "https://www.googleapis.com/oauth2/v3/userinfo"
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.get(url=url) as response:
-            if response.status == 200:
-                user_info = await response.json()
-                return User(**user_info)
-            else:
-                print(
-                    f"Failed to fetch user info: {response.status_code} {response.text}")
-                return None
-
-
 @app.get(path="/validate/{init_data}")
 async def validate_init_data(init_data: str) -> UserResponse:
-    user_data: TelegramUser | None = validate_init_data_signature(init_data)
+    user_data: TelegramUser | None = validate_init_data_signature(init_data, DSA_BOT_TOKEN)
     if not user_data:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Invalid data signature. Access forbidden.")
@@ -159,26 +144,9 @@ async def validate_init_data(init_data: str) -> UserResponse:
             "by authenticating through the bot before accessing this mini app.")
 
     official = User(**official.to_dict())
-    return UserResponse(email=official.email, name=official.name, refresh_token="this", access_token="that", photo_url=user_data.photo_url)
 
-
-def validate_init_data_signature(init_data: str) -> bool:
-    query_string = init_data
-
-    query_dict = parse_qs(query_string)
-    query_dict = {k: v[0]
-                  for k, v in query_dict.items()}
-    query_dict = {k: query_dict[k] for k in sorted(query_dict)}
-    data_check_string = '\n'.join(
-        f"{k}={v}" for k, v in sorted(query_dict.items()) if k != 'hash')
-
-    secret_key = hmac.new(b"WebAppData",
-                          DSA_BOT_TOKEN.encode(), hashlib.sha256).digest()
-    expected_hash = hmac.new(
-        secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-    received_hash = query_dict.get("hash", None)
-    if not received_hash:
-        return None
-
-    if expected_hash == received_hash:
-        return TelegramUser(**json.loads(query_dict["user"]))
+    access_token = generate_jwt(
+        secret=JWT_SIGNING_SECRET_KEY, expires_delta=ACCESS_TOKEN_EXPIRATION_DELTA)
+    refresh_token = generate_jwt(
+        secret=JWT_SIGNING_SECRET_KEY, expires_delta=REFRESH_TOKEN_EXPIRATION_DELTA)
+    return UserResponse(email=official.email, name=official.name, refresh_token=refresh_token, access_token=access_token, photo_url=user_data.photo_url)
