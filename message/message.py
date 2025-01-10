@@ -20,30 +20,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
-BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
-
 BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
-BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
+STUDENT_BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
 SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
 JWT_SIGNING_SECRET_KEY = os.getenv("JWT_SIGNING_SECRET_KEY")
 
 security = HTTPBearer()
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await bot.remove_webhook()
-    # Set webhook
-    await bot.set_webhook(
-        url=BOT_URL_BASE + BOT_TOKEN
-    )
-    yield
-
-app = FastAPI(lifespan=lifespan)
-bot = async_telebot.AsyncTeleBot(BOT_TOKEN)
+app = FastAPI()
+bot = async_telebot.AsyncTeleBot(STUDENT_BOT_TOKEN)
 
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
