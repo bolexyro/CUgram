@@ -6,3 +6,4 @@ itsdangerous==2.2.0
 firebase-admin==6.6.0
 aiohttp[speedups]==3.11.11
 pytz==2024.2
+PyJWT==2.10.0
