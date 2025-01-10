@@ -121,7 +121,7 @@ async def receive_message_handler(message: Message):
         try:
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton(
-                "🔍 Open Viewer", web_app=WebAppInfo(url="https://www.editpad.org/")))
+                "🔍 Open Viewer", web_app=WebAppInfo(url="https://bolexyro.vercel.app/")))
             if message.attachments:
                 for index, attachment in enumerate(message.attachments):
                     if attachment.content_type == 'audio':

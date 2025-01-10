@@ -1,6 +1,6 @@
 # Where I got some info from https://docs.replit.com/additional-resources/google-auth-in-flask
 
-from models.schemas import User
+from models.schemas import TelegramUser, User, UserResponse
 from models.enums import CloudCollections
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import RedirectResponse
@@ -13,6 +13,11 @@ from firebase_admin import credentials, firestore_async
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import aiohttp
+
+from urllib.parse import parse_qs
+import hmac
+import hashlib
+import json
 
 load_dotenv()
 
@@ -28,7 +33,7 @@ STUDENT_BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 DSA_BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
 DSA_BOT_SERVER_SECRET_TOKEN = os.getenv("DSA_BOT_SERVER_SECRET_TOKEN")
 STUDENT_BOT_SERVER_SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
-
+DSA_BOT_TOKEN = os.getenv("DSA_BOT_TOKEN")
 OFFICIAL_EMAILS = ["odufuwa.adebola@stu.cu.edu.ng",
                    "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng"]
 
@@ -96,7 +101,7 @@ async def oauth2callback(request: Request):
             "user_id": user_id,
             "is_official": is_official
         })
-    
+
     if not is_official and user.email.endswith("@stu.cu.edu.ng") == False:
         return templates.TemplateResponse(name="not_student.html", request=request, context={
             "user_id": user_id,
@@ -134,3 +139,46 @@ async def get_user_info(access_token: str) -> User:
                 print(
                     f"Failed to fetch user info: {response.status_code} {response.text}")
                 return None
+
+
+@app.get(path="/validate/{init_data}")
+async def validate_init_data(init_data: str) -> UserResponse:
+    user_data: TelegramUser | None = validate_init_data_signature(init_data)
+    if not user_data:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Invalid data signature. Access forbidden.")
+    print(user_data)
+    official_ref = db.collection(
+        CloudCollections.officials.value).document(str(user_data.id))
+
+    official = await official_ref.get()
+
+    if not official.exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Access denied. Please verify your administrative position at Covenant University"
+            "by authenticating through the bot before accessing this mini app.")
+
+    official = User(**official.to_dict())
+    return UserResponse(email=official.email, name=official.name, refresh_token="this", access_token="that", photo_url=user_data.photo_url)
+
+
+def validate_init_data_signature(init_data: str) -> bool:
+    query_string = init_data
+
+    query_dict = parse_qs(query_string)
+    query_dict = {k: v[0]
+                  for k, v in query_dict.items()}
+    query_dict = {k: query_dict[k] for k in sorted(query_dict)}
+    data_check_string = '\n'.join(
+        f"{k}={v}" for k, v in sorted(query_dict.items()) if k != 'hash')
+
+    secret_key = hmac.new(b"WebAppData",
+                          DSA_BOT_TOKEN.encode(), hashlib.sha256).digest()
+    expected_hash = hmac.new(
+        secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    received_hash = query_dict.get("hash", None)
+    if not received_hash:
+        return None
+
+    if expected_hash == received_hash:
+        return TelegramUser(**json.loads(query_dict["user"]))
