@@ -5,6 +5,7 @@ from models.enums import CloudCollections
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
+from telebot import async_telebot
 import os
 from dotenv import load_dotenv
 import google_auth_oauthlib
@@ -27,6 +28,8 @@ SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
           "https://www.googleapis.com/auth/userinfo.profile"]
 STUDENT_BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
+STUDENT_BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
+DSA_BOT_TOKEN = os.getenv('DSA_BOT_TOKEN')
 DSA_BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
 DSA_BOT_SERVER_SECRET_TOKEN = os.getenv("DSA_BOT_SERVER_SECRET_TOKEN")
 STUDENT_BOT_SERVER_SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
@@ -44,6 +47,9 @@ app.add_middleware(SessionMiddleware, secret_key=FASTAPI_AUTH_SECRET_KEY)
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
 db = firestore_async.client()
+
+student_bot = async_telebot.AsyncTeleBot(STUDENT_BOT_TOKEN)
+dsa_bot = async_telebot.AsyncTeleBot(DSA_BOT_TOKEN)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -115,20 +121,20 @@ async def oauth2callback(request: Request):
         CloudCollections.officials.value if is_official else CloudCollections.students.value).document(user_id)
     await doc_ref.set(data)
 
-    url = (DSA_BOT_URL_BASE if is_official else STUDENT_BOT_URL_BASE) + \
-        f'auth-complete/{user_id}'
-    headers = {
-        "Authorization": f"Bearer {DSA_BOT_SERVER_SECRET_TOKEN if is_official else STUDENT_BOT_SERVER_SECRET_TOKEN}"}
-    # this request is so that the bot sends the user a confirmation message
-    async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.get(url=url) as response:
-            pass
+    if is_official:
+        await dsa_bot.send_message(
+            user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages.✅')
+    else:
+        await student_bot.send_message(
+            user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages. ✅')
+
     return RedirectResponse("https://t.me/DSACU_bot" if is_official else "https://t.me/CUgram_bot", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get(path="/validate/{init_data}")
 async def validate_init_data(init_data: str) -> UserResponse:
-    user_data: TelegramUser | None = validate_init_data_signature(init_data, DSA_BOT_TOKEN)
+    user_data: TelegramUser | None = validate_init_data_signature(
+        init_data, DSA_BOT_TOKEN)
     if not user_data:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Invalid data signature. Access forbidden.")

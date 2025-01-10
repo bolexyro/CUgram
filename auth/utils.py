@@ -81,4 +81,3 @@ def decode_jwt(token: str, secret: str, algorithms: list = ["HS256"]) -> dict:
         raise Exception("Token has expired.")
     except jwt.InvalidTokenError:
         raise Exception("Invalid token.")
-

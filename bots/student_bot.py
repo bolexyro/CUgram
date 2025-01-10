@@ -6,18 +6,13 @@ from dotenv import load_dotenv
 import aiohttp
 import io
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyParameters, WebAppInfo
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyParameters
 from telebot import async_telebot
 from fastapi import FastAPI, status, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from contextlib import asynccontextmanager
 import firebase_admin
 from firebase_admin import credentials, firestore_async
-import pytz
-from datetime import datetime
-import time
-import random
-import string
 
 load_dotenv()
 
@@ -86,76 +81,17 @@ async def send_welcome(message):
                            text="Hello! To access this bot, you need to verify that you have a valid Covenant University email. Please sign in with your Google account using the button below.", reply_markup=markup)
 
 
-@app.get('/auth-complete/{user_id}', dependencies=[Depends(verify_token)])
-async def on_auth_completed(user_id: str):
-    await bot.send_message(
-        user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages. ✅')
-
-
-def generate_unique_id():
-    timestamp = int(time.time())
-    random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
-    unique_id = f"{timestamp}{random_string}"
-    return unique_id
-
-@app.post(path='/message', dependencies=[Depends(verify_token)])
-async def receive_message_handler(message: Message):
-    new_message_id = generate_unique_id()
-    new_message_ref = db.collection(CloudCollections.messages.value).document(new_message_id)
-
-    local_tz = pytz.timezone('Africa/Lagos')
-    local_time = datetime.now(local_tz)
-    local_time_str = local_time.isoformat()
-
-    await new_message_ref.set(
-        {
-            **message.model_dump(),
-            "timestamp": local_time_str
-        }
-    )
-
-    docs = db.collection(
-        CloudCollections.students.value).stream()
-
-    async for doc in docs:
-        try:
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton(
-                "🔍 Open Viewer", web_app=WebAppInfo(url="https://bolexyro.vercel.app/")))
-            if message.attachments:
-                for index, attachment in enumerate(message.attachments):
-                    if attachment.content_type == 'audio':
-                        markup.add(InlineKeyboardButton(
-                            f"🎧 {attachment.file_name}", callback_data=f"download:{new_message_id}:{index}"))
-                    elif attachment.content_type == 'photo':
-                        markup.add(InlineKeyboardButton(
-                            f"🖼️ {attachment.file_name}", callback_data=f"download:{new_message_id}:{index}"))
-                    elif attachment.content_type == 'voice':
-                        markup.add(InlineKeyboardButton(
-                            f"🎙️ {attachment.file_name}", callback_data=f"download:{new_message_id}:{index}"))
-                    elif attachment.content_type == 'video':
-                        markup.add(InlineKeyboardButton(
-                            f"🎥 {attachment.file_name}", callback_data=f"download:{new_message_id}:{index}"))
-                    elif attachment.content_type == 'document':
-                        markup.add(InlineKeyboardButton(
-                            f"📄 {attachment.file_name}", callback_data=f"download:{new_message_id}:{index}"))
-            await bot.send_message(
-                doc.id, text=f"✉️ {message.user.name} <{message.user.email}> \n\n {message.text}", reply_markup= markup)
-        except Exception as e:
-            # this try and except block is to catch any errors that may arise if doc.id is not a good telegram user id
-            print(f"Exception => {e}")
-
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("download"))
 async def callback_query(call: CallbackQuery):
     user_id = call.from_user.id
     message_id, attachment_index = call.data.split(":")[1:]
-    message_ref = db.collection(CloudCollections.messages.value).document(message_id)
+    message_ref = db.collection(
+        CloudCollections.messages.value).document(message_id)
     message_data = (await message_ref.get()).to_dict()
     attachment = message_data["attachments"][int(attachment_index)]
     attachment = Attachment(**attachment)
     sender_email = message_data["user"]["email"]
-    
+
     url = attachment.url
     try:
         async with aiohttp.ClientSession() as session:
@@ -168,7 +104,7 @@ async def callback_query(call: CallbackQuery):
                     file_in_memory.seek(0)
                     downloaded_attachment = DownloadedAttachment(
                         file=file_in_memory, content_type=attachment.content_type)
-                    
+
         message_caption = f"Attachment {attachment.file_name} by \n{sender_email}"
 
         reply_parameters = ReplyParameters(call.message.message_id)
@@ -187,7 +123,7 @@ async def callback_query(call: CallbackQuery):
     except Exception as e:
         print(f"Exception => {e}")
         await bot.send_message(
-                user_id, text="An error occurred while trying to download the attachment")
+            user_id, text="An error occurred while trying to download the attachment")
 
 
 # uncomment this for polling

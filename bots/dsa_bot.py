@@ -34,6 +34,7 @@ AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 SECRET_TOKEN = os.getenv("DSA_BOT_SERVER_SECRET_TOKEN")
 STUDENT_BOT_SERVER_SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await bot.remove_webhook()
@@ -46,7 +47,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-state_storage = StateMemoryStorage() # don't use this in production; switch to redis
+# TODO don't use this in production; switch to redis
+state_storage = StateMemoryStorage()
 bot = async_telebot.AsyncTeleBot(BOT_TOKEN, state_storage=state_storage)
 
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
@@ -81,12 +83,6 @@ async def is_an_official(user_id) -> User | None:
         CloudCollections.officials.value).document(str(user_id))
     official_user_data = await official_user_ref.get()
     return User(**official_user_data.to_dict()) if official_user_data.exists else None
-
-
-@app.get('/auth-complete/{user_id}', dependencies=[Depends(verify_token)])
-async def on_auth_completed(user_id: str):
-    await bot.send_message(
-        user_id, text='Thank you for verifying your Covenant University email! You\'re now authorized to use the bot and receive messages.✅')
 
 
 @bot.message_handler(commands=["cancel"])
@@ -196,10 +192,13 @@ async def handle_attachment_complete(message: TelegramMessage, state: StateConte
 
 def generate_random_filename():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    random_string = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    random_string = ''.join(random.choices(
+        string.ascii_letters + string.digits, k=8))
     return f"{timestamp}_{random_string}"
 
 # 'text', 'location', 'contact', 'sticker'
+
+
 @bot.message_handler(content_types=['audio', 'photo', 'voice', 'video', 'document'], state=UserState.attachments)
 async def handle_attachments(message: TelegramMessage, state: StateContext):
     if message.content_type == 'audio':
@@ -211,7 +210,7 @@ async def handle_attachments(message: TelegramMessage, state: StateContext):
         file_name = generate_random_filename()
     elif message.content_type == 'voice':
         file_id = message.voice.file_id
-        file_name = generate_random_filename() 
+        file_name = generate_random_filename()
     elif message.content_type == 'video':
         file_id = message.video.file_id
         file_name = message.video.file_name
@@ -255,12 +254,12 @@ async def callback_query(call: CallbackQuery, state: StateContext):
 async def restart_handler(message: TelegramMessage, state: StateContext):
     async with state.data() as data:
         official_user = data.get("user", User(
-                email="unknown@gmail.com", name="Unknown"))
+            email="unknown@gmail.com", name="Unknown"))
     await send_message_and_restart_message_handler(message, state=state, user=official_user)
 
 
 async def send_message_to_students(message: Message, user_id):
-    url = "https://cugram.onrender.com/message"
+    url = "https://message-server-abb2.onrender.com/message/simple"
     headers = {
         "accept": "application/json",
         "Content-Type": "application/json",
@@ -268,7 +267,7 @@ async def send_message_to_students(message: Message, user_id):
     }
 
     payload = message.model_dump()
-    
+
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(url=url, json=payload) as response:
             print(f"status code is {response.status}")
@@ -288,7 +287,7 @@ bot.setup_middleware(StateMiddleware(bot))
 
 # import asyncio
 # async def main():
-    # await bot.remove_webhook()
-    # await bot.polling()
+#     await bot.remove_webhook()
+#     await bot.polling()
 
 # asyncio.run(main())
