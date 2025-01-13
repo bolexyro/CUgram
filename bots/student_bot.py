@@ -1,6 +1,5 @@
-from models.schemas import DownloadedAttachment, Message, Attachment
+from models.schemas import DownloadedAttachment, Attachment
 from models.enums import CloudCollections
-from typing import Annotated
 import os
 from dotenv import load_dotenv
 import aiohttp
@@ -8,8 +7,7 @@ import io
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyParameters
 from telebot import async_telebot
-from fastapi import FastAPI, status, HTTPException, Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import firebase_admin
 from firebase_admin import credentials, firestore_async
@@ -20,8 +18,6 @@ BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
 AUTH_URL_BASE = os.getenv("AUTH_URL_BASE")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
 BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
-SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,16 +34,6 @@ bot = async_telebot.AsyncTeleBot(BOT_TOKEN)
 firebase_cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
 firebase_admin.initialize_app(firebase_cred)
 db = firestore_async.client()
-
-security = HTTPBearer()
-
-
-def verify_token(credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
-    if credentials.credentials != SECRET_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or missing token",
-        )
 
 
 @app.post(path=f"/{BOT_TOKEN}")

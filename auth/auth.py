@@ -25,21 +25,18 @@ os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 FASTAPI_AUTH_SECRET_KEY = os.getenv('FASTAPI_AUTH_SECRET_KEY')
 OAUTH_CLIENT_SECRETS_PATH = os.getenv("CLIENT_SECRETS_PATH")
 SERVICE_ACCOUNT_KEY_PATH = os.getenv("SERVICE_ACCOUNT_KEY_PATH")
-SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
-          "https://www.googleapis.com/auth/userinfo.profile"]
-STUDENT_BOT_URL_BASE = os.getenv("STUDENT_BOT_URL_BASE")
-STUDENT_BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
+
 DSA_BOT_TOKEN = os.getenv('DSA_BOT_TOKEN')
-DSA_BOT_URL_BASE = os.getenv("DSA_BOT_URL_BASE")
-DSA_BOT_SERVER_SECRET_TOKEN = os.getenv("DSA_BOT_SERVER_SECRET_TOKEN")
-STUDENT_BOT_SERVER_SECRET_TOKEN = os.getenv("STUDENT_BOT_SERVER_SECRET_TOKEN")
-DSA_BOT_TOKEN = os.getenv("DSA_BOT_TOKEN")
-OFFICIAL_EMAILS = ["odufuwa.adebola@stu.cu.edu.ng",
-                   "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng"]
+STUDENT_BOT_TOKEN = os.getenv('STUDENT_BOT_TOKEN')
 
 JWT_SIGNING_SECRET_KEY = os.getenv("JWT_SIGNING_SECRET_KEY")
 ACCESS_TOKEN_EXPIRATION_DELTA = timedelta(hours=2)
 REFRESH_TOKEN_EXPIRATION_DELTA = timedelta(weeks=1)
+
+SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile"]
+OFFICIAL_EMAILS = ["odufuwa.adebola@stu.cu.edu.ng",
+                   "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng"]
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=FASTAPI_AUTH_SECRET_KEY)
@@ -156,3 +153,8 @@ async def validate_init_data(init_data: str) -> UserResponse:
     refresh_token = generate_jwt(
         secret=JWT_SIGNING_SECRET_KEY, expires_delta=REFRESH_TOKEN_EXPIRATION_DELTA)
     return UserResponse(email=official.email, name=official.name, refresh_token=refresh_token, access_token=access_token, photo_url=user_data.photo_url)
+
+
+@app.post(path="/refresh")
+def refresh_access_token(refresh_token: str):
+    pass
