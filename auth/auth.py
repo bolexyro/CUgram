@@ -36,7 +36,7 @@ REFRESH_TOKEN_EXPIRATION_DELTA = timedelta(weeks=1)
 SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
           "https://www.googleapis.com/auth/userinfo.profile"]
 OFFICIAL_EMAILS = ["odufuwa.adebola@stu.cu.edu.ng",
-                   "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng"]
+                   "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng", "iyamu.wisdom@stu.cu.edu.ng"]
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=FASTAPI_AUTH_SECRET_KEY)
