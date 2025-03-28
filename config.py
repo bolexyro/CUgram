@@ -1,6 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import model_validator
-
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -19,13 +17,6 @@ class Settings(BaseSettings):
     official_emails: list[str]
     scopes: list[str]
     jwt_signing_secret_key: str
-
-    @model_validator(mode="before")
-    @classmethod
-    def _parse_official_emails(cls, data):
-        data["official_emails"] = data["official_emails"].split(",")
-        data["scopes"] = data["scopes"].split(",")
-        return data
 
 
 settings = Settings()
