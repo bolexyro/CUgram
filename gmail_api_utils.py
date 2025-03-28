@@ -6,7 +6,8 @@ import re
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 creds = Credentials.from_authorized_user_file('token.json')
-
+OFFICIAL_EMAILS = ["odufuwa.adebola@stu.cu.edu.ng",
+                   "dsa@cu.edu.ng", "seald@covenantuniversity.edu.ng", "iyamu.wisdom@stu.cu.edu.ng"]
 
 def get_email_details(service, history_id):
     # Fetch the history
@@ -34,6 +35,10 @@ def get_email_details(service, history_id):
     if match:
         sender_name = match.group(1).strip('" ')
         sender_email = match.group(2).strip()
+        
+        if sender_email not in OFFICIAL_EMAILS:
+            return None, None, None, None, None, None
+            
     else:
         sender_name = None
         sender_email = from_header.strip()
