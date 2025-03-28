@@ -399,13 +399,12 @@ dsa_bot.setup_middleware(StateMiddleware(dsa_bot))
 
 # uncomment this for polling
 
-import asyncio
+# import asyncio
+
+# async def main():
+#     print("Bot Started .....")
+#     await dsa_bot.remove_webhook()
+#     await dsa_bot.polling()
 
 
-async def main():
-    print("Bot Started .....")
-    await dsa_bot.remove_webhook()
-    await dsa_bot.polling()
-
-
-asyncio.run(main())
+# asyncio.run(main())
