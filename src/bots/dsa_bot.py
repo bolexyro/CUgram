@@ -25,6 +25,8 @@ from datetime import datetime
 import time
 import pytz
 
+from core.utils import append_random_params
+
 # current_dir = os.path.dirname(os.path.abspath(__file__))
 # parent_dir = os.path.dirname(current_dir)
 # sys.path.append(parent_dir)
@@ -77,11 +79,13 @@ async def send_welcome(message):
             text=f"You're already verified as {official_user.name} - {official_user.email}. Feel free to continue using the bot",
         )
     else:
+        url = f"{settings.server_url_base}/auth/authorize/{message.from_user.id}?is_official=true"
+        url = append_random_params(url)
         markup = InlineKeyboardMarkup()
         markup.add(
             InlineKeyboardButton(
                 "Authorize me",
-                url=f"{settings.server_url_base}/auth/authorize/{message.from_user.id}?is_official=true",
+                url=url,
             )
         )
         await dsa_bot.send_message(
@@ -104,11 +108,14 @@ async def send_message_and_restart_message_handler(
         await state.set(UserState.message)
         await state.add_data(user=official_user)
     else:
+        url = f"{settings.server_url_base}/auth/authorize/{message.from_user.id}?is_official=true"
+        url = append_random_params(url)
+        
         markup = InlineKeyboardMarkup()
         markup.add(
             InlineKeyboardButton(
                 "Authorize me",
-                url=f"{settings.server_url_base}/auth/authorize/{message.from_user.id}",
+                url=url,
             )
         )
         await dsa_bot.send_message(

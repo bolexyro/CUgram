@@ -14,6 +14,7 @@ from telebot import async_telebot
 from fastapi import APIRouter
 from firebase_admin import firestore_async
 from core.config import settings
+from core.utils import append_random_params
 
 
 student_bot_router = APIRouter(prefix="/student_bot", tags=["student_bot"])
@@ -48,12 +49,12 @@ async def send_welcome(message):
             text=f"You're already verified with your Covenant University email {student['email']}. Feel free to continue using the bot.",
         )
         return
+    url = f"{settings.server_url_base}/auth/authorize/{user_id}"
+    url = append_random_params(url)
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(
-        InlineKeyboardButton(
-            "Authorize me", url=f"{settings.server_url_base}/auth/authorize/{user_id}"
-        )
+        InlineKeyboardButton("Authorize me", url=url)
     )
     await bot.send_message(
         chat_id=message.from_user.id,
