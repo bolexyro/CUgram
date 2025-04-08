@@ -1,19 +1,19 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    auth_url_base: str
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8")
+
     client_secrets_path: str
-    dsa_bot_token: str
-    dsa_bot_url_base: str
-    fastapi_session_secret_key: str
     service_account_key_path: str
+    fastapi_session_secret_key: str
+    jwt_signing_secret_key: str
+    dsa_bot_token: str
     student_bot_token: str
-    student_bot_url_base: str
+    server_url_base: str
     official_emails: list[str]
     scopes: list[str]
-    jwt_signing_secret_key: str
 
 
 settings = Settings()

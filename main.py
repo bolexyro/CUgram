@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 from core.config import settings
@@ -19,9 +19,9 @@ from src.message.router import message_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await dsa_bot.remove_webhook()
-    await dsa_bot.set_webhook(url=f"{settings.dsa_bot_url_base}/{settings.dsa_bot_token}")
+    await dsa_bot.set_webhook(url=f"{settings.server_url_base}/dsa_bot/{settings.dsa_bot_token}")
     await student_bot.bot.remove_webhook()
-    await student_bot.bot.set_webhook(url=f"{settings.student_bot_url_base}/{settings.student_bot_token}")
+    await student_bot.bot.set_webhook(url=f"{settings.server_url_base}/student_bot/{settings.student_bot_token}")
     yield
 
 app = FastAPI(lifespan=lifespan)

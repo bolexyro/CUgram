@@ -52,7 +52,7 @@ async def send_welcome(message):
     markup.row_width = 2
     markup.add(
         InlineKeyboardButton(
-            "Authorize me", url=f"{settings.auth_url_base}/authorize/{user_id}"
+            "Authorize me", url=f"{settings.server_url_base}/auth/authorize/{user_id}"
         )
     )
     await bot.send_message(

@@ -81,7 +81,7 @@ async def send_welcome(message):
         markup.add(
             InlineKeyboardButton(
                 "Authorize me",
-                url=f"{settings.auth_url_base}/authorize/{message.from_user.id}?is_official=true",
+                url=f"{settings.server_url_base}/auth/authorize/{message.from_user.id}?is_official=true",
             )
         )
         await dsa_bot.send_message(
@@ -108,7 +108,7 @@ async def send_message_and_restart_message_handler(
         markup.add(
             InlineKeyboardButton(
                 "Authorize me",
-                url=f"{settings.auth_url_base}/authorize/{message.from_user.id}",
+                url=f"{settings.server_url_base}/auth/authorize/{message.from_user.id}",
             )
         )
         await dsa_bot.send_message(
