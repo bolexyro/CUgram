@@ -5,13 +5,10 @@ class Settings(BaseSettings):
 
     auth_url_base: str
     client_secrets_path: str
-    dsa_bot_server_secret_token: str
     dsa_bot_token: str
     dsa_bot_url_base: str
-    dsa_email: str
-    fastapi_auth_secret_key: str
+    fastapi_session_secret_key: str
     service_account_key_path: str
-    student_bot_server_secret_token: str
     student_bot_token: str
     student_bot_url_base: str
     official_emails: list[str]

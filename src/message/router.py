@@ -1,17 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, APIRouter
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from auth.utils import decode_jwt
-import firebase_admin
-from firebase_admin import credentials, firestore_async
+from src.auth.utils import decode_jwt
+from firebase_admin import firestore_async
 from typing import Annotated
-from config import settings
+from core.config import settings
 
 security = HTTPBearer()
 
-app = FastAPI()
+message_router = APIRouter(prefix="/message", tags=["message"])
 
-firebase_cred = credentials.Certificate(settings.service_account_key_path)
-firebase_admin.initialize_app(firebase_cred)
 db = firestore_async.client()
 
 
@@ -31,7 +28,7 @@ def verify_access_token(
         )
 
 
-@app.post("/message/rich", dependencies=[Depends(verify_access_token)])
+@message_router.post("/rich", dependencies=[Depends(verify_access_token)])
 async def create_rich_message():
     """
     Endpoint to create a rich message from a text editor.

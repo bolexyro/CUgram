@@ -16,7 +16,7 @@
         else %} You did not use your student email to authenticate. Please try
         again with a valid student email. {% endif %}
       </p>
-      <button onclick="window.location.href='/authorize/{{user_id}}?is_official={{is_official}}';">
+      <button onclick="window.location.href='/auth/authorize/{{user_id}}?is_official={{is_official}}';">
         Try Again
       </button>
     </div>

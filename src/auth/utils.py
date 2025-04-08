@@ -1,32 +1,10 @@
-import aiohttp
-from models.schemas import TelegramUser, User
-
+from core.schemas import TelegramUser
 from urllib.parse import parse_qs
 import hmac
 import hashlib
 import json
-
 import jwt
 from datetime import datetime, timedelta, timezone
-
-# Secret key to sign the JWT
-SECRET_KEY = "your_secret_key"
-
-
-async def get_user_info(access_token: str) -> User:
-    url = "https://www.googleapis.com/oauth2/v3/userinfo"
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.get(url=url) as response:
-            if response.status == 200:
-                user_info = await response.json()
-                return User(**user_info)
-            else:
-                print(
-                    f"Failed to fetch user info: {response.status_code} {response.text}")
-                return None
 
 
 def validate_init_data_signature(init_data: str, bot_token: str) -> bool:
