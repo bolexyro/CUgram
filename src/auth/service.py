@@ -36,18 +36,26 @@ class AuthService:
         return RedirectResponse(authorization_url, status_code=status.HTTP_303_SEE_OTHER)
 
     async def oauth2callback(self, request: Request, templates: Jinja2Templates):
-        error = request.query_params.get("error")
-        if error:
-            # TODO redirect them to an error page
-            raise HTTPException(
-                status_code=400, detail=f"OAuth 2.0 Error: {error}")
-
         state = request.session.get("state", False)
         user_id = request.session.get("user_id", None)
+        is_official = request.session.get("is_official", False)
+        request.session.clear()
 
         if not state and not user_id:
-            raise HTTPException(
-                status_code=400, detail="Invalid state parameter")
+            return templates.TemplateResponse(
+                name="error_page.html",
+                request=request,
+                context={"error_message": "Invalid state parameter",
+                         "close_on_click": True},
+            )
+
+        error = request.query_params.get("error")
+        if error:
+            return templates.TemplateResponse(
+                name="error_page.html",
+                request=request,
+                context={"error_message": error, "user_id": user_id, "is_official": is_official},
+            )
 
         flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
             settings.client_secrets_path, scopes=settings.scopes, state=state
@@ -59,9 +67,6 @@ class AuthService:
 
         credentials = flow.credentials
         user = await AuthService.get_google_user_info(credentials.token)
-        is_official = request.session.get("is_official", False)
-
-        request.session.clear()
 
         if is_official and user.email not in settings.official_emails:
             return templates.TemplateResponse(

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>An Error Occurred</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <style>
+      p {
+        margin-bottom: 30px;
+      }
+
+      .error-icon {
+        font-size: 48px;
+        color: #d32f2f;
+        margin-bottom: 20px;
+      }
+
+      button {
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #1967d2;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="error-icon">&#9888;</div>
+      <h1>An Error Occurred</h1>
+      <p>
+        We've encountered an unexpected issue. Please try again later. If the
+        problem persists, contact support.
+      </p>
+      <p>{{ error_message }}</p>
+      {% if close_on_click %}
+      <button onclick="window.close();">Close</button>
+      {% else %}
+      <button onclick="window.location.href='/auth/authorize/{{user_id}}?is_official={{is_official}}';">Try Again</button>
+      {% endif %}
+    </div>
+  </body>
+</html>

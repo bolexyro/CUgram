@@ -15,6 +15,7 @@ REFRESH_TOKEN_EXPIRATION_DELTA = timedelta(weeks=1)
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 db = firestore_async.client()
 
