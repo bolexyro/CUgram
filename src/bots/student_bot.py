@@ -1,5 +1,5 @@
-from models.schemas import DownloadedAttachment, Attachment
-from models.enums import CloudCollections
+from core.schemas import DownloadedAttachment, Attachment
+from core.enums import CloudCollections
 import os
 import aiohttp
 import io
@@ -11,32 +11,19 @@ from telebot.types import (
     ReplyParameters,
 )
 from telebot import async_telebot
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-import firebase_admin
-from firebase_admin import credentials, firestore_async
-from config import settings
+from fastapi import APIRouter
+from firebase_admin import firestore_async
+from core.config import settings
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await bot.remove_webhook()
-    # Set webhook
-    await bot.set_webhook(
-        url=settings.student_bot_url_base + settings.student_bot_token
-    )
-    yield
+student_bot_router = APIRouter(prefix="/student_bot", tags=["student_bot"])
 
-
-app = FastAPI(lifespan=lifespan)
 bot = async_telebot.AsyncTeleBot(settings.student_bot_token)
 
-firebase_cred = credentials.Certificate(settings.service_account_key_path)
-firebase_admin.initialize_app(firebase_cred)
 db = firestore_async.client()
 
 
-@app.post(path=f"/{settings.student_bot_token}")
+@student_bot_router.post(path=f"/{settings.student_bot_token}")
 async def process_webhook_text_pay_bot(update: dict):
     """
     Process webhook calls for cugram
@@ -51,7 +38,8 @@ async def process_webhook_text_pay_bot(update: dict):
 @bot.message_handler(commands=["start"])
 async def send_welcome(message):
     user_id = message.from_user.id
-    student_ref = db.collection(CloudCollections.students.value).document(str(user_id))
+    student_ref = db.collection(
+        CloudCollections.students.value).document(str(user_id))
     student = await student_ref.get()
     if student.exists:
         student = student.to_dict()
@@ -64,7 +52,7 @@ async def send_welcome(message):
     markup.row_width = 2
     markup.add(
         InlineKeyboardButton(
-            "Authorize me", url=f"{settings.auth_url_base}authorize/{user_id}"
+            "Authorize me", url=f"{settings.server_url_base}/auth/authorize/{user_id}"
         )
     )
     await bot.send_message(
@@ -78,7 +66,8 @@ async def send_welcome(message):
 async def callback_query(call: CallbackQuery):
     user_id = call.from_user.id
     message_id, attachment_index = call.data.split(":")[1:]
-    message_ref = db.collection(CloudCollections.messages.value).document(message_id)
+    message_ref = db.collection(
+        CloudCollections.messages.value).document(message_id)
     message_data = (await message_ref.get()).to_dict()
     attachment = message_data["attachments"][int(attachment_index)]
     attachment = Attachment(**attachment)

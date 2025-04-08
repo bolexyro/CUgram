@@ -1,6 +1,6 @@
-from models.enums import CloudCollections
-from models.states import UserState
-from models.schemas import Message, Attachment, User
+from core.enums import CloudCollections
+from core.states import UserState
+from core.schemas import Message, Attachment, User
 import telebot
 from telebot import async_telebot, asyncio_filters
 from telebot.asyncio_storage import StateMemoryStorage
@@ -15,12 +15,10 @@ from telebot.types import (
 # necessary for state parameter in handlers.
 from telebot.states.asyncio.middleware import StateMiddleware
 from telebot.states.asyncio.context import StateContext
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-import firebase_admin
-from firebase_admin import credentials, firestore_async
+from fastapi import APIRouter
+from firebase_admin import firestore_async
 
-from config import settings
+from core.config import settings
 import random
 import string
 from datetime import datetime
@@ -32,15 +30,7 @@ import pytz
 # sys.path.append(parent_dir)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await dsa_bot.remove_webhook()
-    # Set webhook
-    await dsa_bot.set_webhook(url=settings.dsa_bot_url_base + settings.dsa_bot_token)
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+dsa_bot_router = APIRouter(prefix="/dsa_bot", tags=["dsa_bot"])
 
 # TODO don't use this in production; switch to redis
 state_storage = StateMemoryStorage()
@@ -49,12 +39,10 @@ dsa_bot = async_telebot.AsyncTeleBot(
 )
 student_bot = async_telebot.AsyncTeleBot(settings.student_bot_token)
 
-firebase_cred = credentials.Certificate(settings.service_account_key_path)
-firebase_admin.initialize_app(firebase_cred)
 db = firestore_async.client()
 
 
-@app.post(path=f"/{settings.dsa_bot_token}")
+@dsa_bot_router.post(path=f"/{settings.dsa_bot_token}")
 async def process_webhook_text_pay_bot(update: dict):
     """
     Process webhook calls for cugram
@@ -93,7 +81,7 @@ async def send_welcome(message):
         markup.add(
             InlineKeyboardButton(
                 "Authorize me",
-                url=f"{settings.auth_url_base}authorize/{message.from_user.id}?is_official=true",
+                url=f"{settings.server_url_base}/auth/authorize/{message.from_user.id}?is_official=true",
             )
         )
         await dsa_bot.send_message(
@@ -120,7 +108,7 @@ async def send_message_and_restart_message_handler(
         markup.add(
             InlineKeyboardButton(
                 "Authorize me",
-                url=f"{settings.auth_url_base}authorize/{message.from_user.id}",
+                url=f"{settings.server_url_base}/auth/authorize/{message.from_user.id}",
             )
         )
         await dsa_bot.send_message(
@@ -152,7 +140,8 @@ async def handle_message(message: TelegramMessage, state: StateContext):
 
 
 @dsa_bot.callback_query_handler(
-    state=[UserState.message], func=lambda call: call.data.startswith("attach_file")
+    state=[UserState.message], func=lambda call: call.data.startswith(
+        "attach_file")
 )
 async def callback_query(call: CallbackQuery, state: StateContext):
     user_id = call.from_user.id
@@ -175,7 +164,8 @@ async def show_confirmation_message(user_id, state: StateContext):
     )
     async with state.data() as data:
         message: str = data.get("message", "Unknown")
-        user: User = data.get("user", User(email="unknown@gmail.com", name="Unknown"))
+        user: User = data.get("user", User(
+            email="unknown@gmail.com", name="Unknown"))
         attachments: list[Attachment] = data.get("attachments", [])
 
     await dsa_bot.send_message(
@@ -230,7 +220,8 @@ async def handle_attachment_complete(message: TelegramMessage, state: StateConte
 
 def generate_random_filename():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    random_string = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    random_string = "".join(random.choices(
+        string.ascii_letters + string.digits, k=8))
     return f"{timestamp}_{random_string}"
 
 
@@ -292,7 +283,8 @@ async def callback_query(call: CallbackQuery, state: StateContext):
             text="Message is sending.....",
         )
         await send_message_to_students(
-            Message(text=message, attachments=attachments, user=official_user), user_id
+            Message(text=message, attachments=attachments,
+                    user=official_user), user_id
         )
         await state.delete()
         async with state.data() as data:
@@ -318,7 +310,8 @@ async def restart_handler(message: TelegramMessage, state: StateContext):
 
 def generate_unique_id():
     timestamp = int(time.time())
-    random_string = "".join(random.choices(string.ascii_letters + string.digits, k=4))
+    random_string = "".join(random.choices(
+        string.ascii_letters + string.digits, k=4))
     unique_id = f"{timestamp}{random_string}"
     return unique_id
 
@@ -339,12 +332,12 @@ async def send_message_to_students(message: Message, user_id):
     async for doc in docs:
         try:
             markup = InlineKeyboardMarkup()
-            markup.add(
-                InlineKeyboardButton(
-                    "🔍 Open Viewer",
-                    web_app=WebAppInfo(url="https://bolexyro.vercel.app/"),
-                )
-            )
+            # markup.add(
+            #     InlineKeyboardButton(
+            #         "🔍 Open Viewer",
+            #         web_app=WebAppInfo(url="https://bolexyro.vercel.app/"),
+            #     )
+            # )
             if message.attachments:
                 for index, attachment in enumerate(message.attachments):
                     if attachment.content_type == "audio":
