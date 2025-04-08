@@ -19,9 +19,9 @@ from src.message.router import message_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await dsa_bot.remove_webhook()
-    await dsa_bot.set_webhook(url=settings.dsa_bot_url_base + settings.dsa_bot_token)
+    await dsa_bot.set_webhook(url=f"{settings.dsa_bot_url_base}/{settings.dsa_bot_token}")
     await student_bot.bot.remove_webhook()
-    await student_bot.bot.set_webhook(url=settings.student_bot_url_base + settings.student_bot_token)
+    await student_bot.bot.set_webhook(url=f"{settings.student_bot_url_base}/{settings.student_bot_token}")
     yield
 
 app = FastAPI(lifespan=lifespan)
