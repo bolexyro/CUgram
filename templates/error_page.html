@@ -35,9 +35,18 @@
       </p>
       <p>{{ error_message }}</p>
       {% if close_on_click %}
-      <button onclick="window.close();">Close</button>
+      <button
+        onclick="alert('This page was not meant to be accessed directly. Please close this tab manually.');"
+      >
+        Close
+      </button>
+
       {% else %}
-      <button onclick="window.location.href='/auth/authorize/{{user_id}}?is_official={{is_official}}';">Try Again</button>
+      <button
+        onclick="window.location.href='/auth/authorize/{{user_id}}?is_official={{is_official}}';"
+      >
+        Try Again
+      </button>
       {% endif %}
     </div>
   </body>
